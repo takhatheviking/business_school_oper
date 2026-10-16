@@ -1,0 +1,22 @@
+# Внутренние документы не публикуем: репозиторий публичный
+*.xlsx
+*.xls
+*.xlsm
+*.docx
+*.doc
+*.pptx
+*.pdf
+*.csv
+~$*
+
+# Секреты и локальные настройки
+.env
+*.env
+.clasp.json
+.clasprc.json
+
+# Служебное
+node_modules/
+.DS_Store
+Thumbs.db
+desktop.ini
