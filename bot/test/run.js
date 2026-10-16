@@ -11,7 +11,7 @@ const props = {
 const sandbox = { console, PropertiesService: { getScriptProperties: () => props } };
 vm.createContext(sandbox);
 vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'Code.gs'), 'utf8') +
-  ';globalThis.api = { makeContext_, buildDigest_, buildReminders_, buildStatusEvents_, matchPeople_, splitList_, handleMessage_, CONFIG };', sandbox);
+  ';globalThis.api = { makeContext_, buildDigest_, buildReminders_, buildStatusEvents_, matchPeople_, splitList_, handleMessage_, loadContext_, onStatusEdit, CONFIG };', sandbox);
 const { api } = sandbox;
 
 const person = (row, role, o = {}) => ({
@@ -83,6 +83,38 @@ const events = api.buildStatusEvents_(ctx, [byId('A-2'), byId('E-1'), byId('M-2'
 eq(events.map(e => e.kind + '→' + e.person.role).sort().join(', '), 'на приёмку→Руководитель, риск→Маркетолог');
 ok(events.find(e => e.kind === 'риск').text.includes('Ждём исходники'), 'комментарий в сообщении о риске');
 eq(api.buildStatusEvents_(ctx, [byId('A-2')], props).length, 0);         // тот же статус второй раз не шлём
+
+// Задачи на листах отделов: бот читает каждый лист с задачами, общий собранный лист пропускает
+const fakeSheet = (name, gid, rows) => ({
+  getName: () => name, getSheetId: () => gid, getLastRow: () => rows.length, getLastColumn: () => (rows[0] || []).length,
+  getDataRange: () => ({ getValues: () => rows }), getRange: () => ({ getValues: () => [rows[0]] }),
+});
+const H = ['ID', 'Задача', 'Исполнитель (R)', 'Статус', 'Начало', 'Срок', 'Дата факт', 'Комментарий', 'Отдел', 'Продукт'];
+const day = s => vm.runInContext('new Date("' + s + 'T12:00:00Z")', sandbox);   // Date из песочницы, иначе instanceof не сработает
+const office = fakeSheet('Офис', 101, [H, ['A-1', 'Задача A-1', 'Маркетолог', 'Готово', day('2026-10-19'), day('2026-10-21'), '', '', 'Офис', 'Школа']]);
+const mkt = fakeSheet('Маркетинг', 103, [H, ['M-1', 'Задача M-1', 'Анвар', 'Не начато', day('2026-10-19'), day('2026-10-20'), '', '', 'Маркетинг', 'BMC']]);
+const view = fakeSheet('Все задачи', 100, [H, ['A-1', 'копия', 'Маркетолог', 'Готово', day('2026-10-19'), day('2026-10-21'), '', '', 'Офис', 'Школа']]);
+const teamSh = fakeSheet('Команда', 300, [['Роль (как в задачах)', 'Имя', 'Telegram @username', 'Telegram chat_id'], ['Маркетолог', 'Лола', '', ''], ['Руководитель', 'Анвар', '', '']]);
+const refSh = fakeSheet('Справочник', 200, [['', 'Отдел', 'Утверждает'], ['', 'Офис', 'Анвар'], ['', 'Маркетинг', 'Анвар']]);
+const fakeSS = {
+  getSheets: () => [fakeSheet('Сводка', 0, [['Статус задач']]), office, mkt, view, teamSh, refSh],
+  getSheetByName: n => [teamSh, refSh].find(s => s.getName() === n) || null,
+  getSpreadsheetTimeZone: () => 'Asia/Tashkent', getUrl: () => 'https://example.com/edit',
+};
+sandbox.ss_ = () => fakeSS;
+sandbox.Utilities = { formatDate: dt => dt.toISOString().slice(0, 10) };
+const live = api.loadContext_();
+eq(live.tasks.map(t => t.sheet + ':' + t.id + ':' + t.row).join(' '), 'Офис:A-1:2 Маркетинг:M-1:2');   // «Сводка» и «Все задачи» пропущены
+eq(live.tasks[1].start + '…' + live.tasks[1].due, '2026-10-19…2026-10-20');
+ok(live.rOf(live.tasks[0])[0].role === 'Маркетолог' && live.rOf(live.tasks[1])[0].role === 'Руководитель', 'одинаковые номера строк на разных листах не путаются');
+let outbox = [];
+sandbox.sendOutbox_ = items => { outbox = items; return []; };
+const editAt = sh => ({ range: { getSheet: () => sh, getRow: () => 2, getLastRow: () => 2, getColumn: () => 4, getLastColumn: () => 4 } });
+api.onStatusEdit(editAt(view));
+eq(outbox.length, 0);                                                        // правка «Все задачи» не считается
+api.onStatusEdit(editAt(office));
+eq(outbox.map(e => e.kind + '→' + e.person.role).join(), 'на приёмку→Руководитель');
+ok(outbox[0].text.includes('#gid=101&amp;range=A2'), 'ссылка ведёт на лист отдела и строку задачи');
 
 // Входящие сообщения: бот общий для команды и клиентов
 let sent = [], calls = [], logs = [], writes = [];

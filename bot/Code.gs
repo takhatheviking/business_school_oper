@@ -17,7 +17,9 @@
  */
 
 const CONFIG = {
-  TASKS_SHEET: 'Задачи',
+  // Задачи ведутся на листах отделов: бот читает каждый лист, где в первой строке есть «ID», «Статус»,
+  // «Исполнитель (R)» и «Срок». Общий лист собирается из них формулой — его бот пропускает.
+  ALL_TASKS_SHEET: 'Все задачи',
   TEAM_SHEET: 'Команда',
   REF_SHEET: 'Справочник',
   LOG_SHEET: 'Журнал бота',
@@ -44,7 +46,7 @@ const STATUS = { NEW: 'Не начато', WORK: 'В работе', DONE: 'Го�
 
 // Заголовки столбцов: бот ищет столбцы по названию, порядок можно менять.
 const COL = {
-  id: 'ID', week: 'Неделя', due: 'Срок', dept: 'Отдел', product: 'Продукт', task: 'Задача',
+  id: 'ID', week: 'Неделя', start: 'Начало', due: 'Срок', dept: 'Отдел', product: 'Продукт', task: 'Задача',
   r: 'Исполнитель (R)', status: 'Статус', fact: 'Дата факт', comment: 'Комментарий',
   result: 'Результат (критерий готовности)', a: 'Утверждает (A)', c: 'Консультирует (C)', i: 'Информировать (I)',
 };
@@ -235,13 +237,14 @@ function onStatusEdit(e) {
   try {
     if (!e || !e.range) return;
     const sh = e.range.getSheet();
-    if (sh.getName() !== CONFIG.TASKS_SHEET || e.range.getLastRow() < 2) return;
-    const head = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0].map(h => String(h).trim());
-    const stCol = head.indexOf(COL.status) + 1;
+    if (e.range.getLastRow() < 2) return;
+    const head = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0];
+    if (!isTaskSheet_(sh, head)) return;
+    const stCol = head.map(h => String(h).trim()).indexOf(COL.status) + 1;
     if (!stCol || stCol < e.range.getColumn() || stCol > e.range.getLastColumn()) return;
     const ctx = loadContext_();
-    const r1 = Math.max(2, e.range.getRow()), r2 = e.range.getLastRow();
-    const edited = ctx.tasks.filter(t => t.row >= r1 && t.row <= r2);
+    const gid = sh.getSheetId(), r1 = Math.max(2, e.range.getRow()), r2 = e.range.getLastRow();
+    const edited = ctx.tasks.filter(t => t.gid === gid && t.row >= r1 && t.row <= r2);
     const items = buildStatusEvents_(ctx, edited, PropertiesService.getScriptProperties());
     if (items.length) sendOutbox_(items);
   } catch (err) {
@@ -387,7 +390,7 @@ function armTest_(m, isStaff, code) {
 function isOpen_(t) { return t.status !== STATUS.DONE && t.status !== STATUS.CANCELLED; }
 
 function sortTasks_(list) {
-  return list.slice().sort((x, y) => (x.due < y.due ? -1 : x.due > y.due ? 1 : x.row - y.row));
+  return list.slice().sort((x, y) => (x.due < y.due ? -1 : x.due > y.due ? 1 : ((x.gid || 0) - (y.gid || 0)) || x.row - y.row));
 }
 
 /** Недельный дайджест. onlyKeys — если задан, только для этих людей (команда /my). */
@@ -562,7 +565,8 @@ function footer_(ctx) {
 }
 
 function link_(ctx, t) {
-  return '<a href="' + esc_(ctx.url + '#gid=' + ctx.gid + '&range=A' + t.row) + '">' + esc_(t.id) + '</a>';
+  const gid = t.gid != null ? t.gid : ctx.gid;
+  return '<a href="' + esc_(ctx.url + '#gid=' + gid + '&range=A' + t.row) + '">' + esc_(t.id) + '</a>';
 }
 
 /* ─────────────────── Сопоставление ролей и людей ────────────────── */
@@ -641,22 +645,37 @@ function ss_() {
   return id ? SpreadsheetApp.openById(id) : SpreadsheetApp.getActiveSpreadsheet();
 }
 
+const TASK_SHEET_COLS = ['id', 'due', 'task', 'r', 'status'];
+
+/** Лист с задачами отдела: в первой строке есть нужные заголовки, и это не общий собранный лист. */
+function isTaskSheet_(sh, headRow) {
+  if (sh.getName() === CONFIG.ALL_TASKS_SHEET) return false;
+  const head = headRow.map(h => String(h).trim());
+  return TASK_SHEET_COLS.every(k => head.indexOf(COL[k]) >= 0);
+}
+
 function loadContext_() {
   const ss = ss_();
   const tz = ss.getSpreadsheetTimeZone();
-  const sh = ss.getSheetByName(CONFIG.TASKS_SHEET);
-  if (!sh) throw new Error('Нет листа «' + CONFIG.TASKS_SHEET + '»');
-  const values = sh.getDataRange().getValues();
-  const idx = headerIndex_(values[0], COL, ['id', 'due', 'task', 'r', 'status']);
   const tasks = [];
-  for (let i = 1; i < values.length; i++) {
-    const t = rowToTask_(values[i], idx, i + 1, tz);
-    if (t.id) tasks.push(t);
-  }
+  let sheets = 0;
+  ss.getSheets().forEach(sh => {
+    if (sh.getLastRow() < 1 || sh.getLastColumn() < 1) return;
+    const values = sh.getDataRange().getValues();
+    if (!isTaskSheet_(sh, values[0])) return;
+    sheets++;
+    const idx = headerIndex_(values[0], COL, TASK_SHEET_COLS);
+    const where = { name: sh.getName(), gid: sh.getSheetId() };
+    for (let i = 1; i < values.length; i++) {
+      const t = rowToTask_(values[i], idx, i + 1, tz, where);
+      if (t.id) tasks.push(t);
+    }
+  });
+  if (!sheets) throw new Error('Не нашёл листов с задачами: нужны столбцы «ID», «Статус», «Исполнитель (R)», «Срок», «Задача»');
   const team = loadTeam_(ss);
   return makeContext_({
     tasks: tasks, people: team.people, defaultA: loadDefaultApprovers_(ss, tasks),
-    url: ss.getUrl(), gid: sh.getSheetId(),
+    url: ss.getUrl(), gid: 0,
   });
 }
 
@@ -664,9 +683,10 @@ function makeContext_(base) {
   const ctx = Object.assign({}, base);
   ctx.matcher = buildMatcher_(ctx.people);
   const cache = {};
-  ctx.rOf = t => cache['r' + t.row] || (cache['r' + t.row] = matchPeople_(t.r, t.product, ctx.matcher).people);
-  ctx.aOf = t => cache['a' + t.row] ||
-    (cache['a' + t.row] = matchPeople_(t.a || ctx.defaultA[t.dept] || '', t.product, ctx.matcher).people);
+  const key = t => (t.gid != null ? t.gid + ':' : '') + t.row;   // строки разных листов не путаются
+  ctx.rOf = t => cache['r' + key(t)] || (cache['r' + key(t)] = matchPeople_(t.r, t.product, ctx.matcher).people);
+  ctx.aOf = t => cache['a' + key(t)] ||
+    (cache['a' + key(t)] = matchPeople_(t.a || ctx.defaultA[t.dept] || '', t.product, ctx.matcher).people);
   return ctx;
 }
 
@@ -678,11 +698,13 @@ function headerIndex_(headRow, spec, required) {
   return idx;
 }
 
-function rowToTask_(row, idx, rowNum, tz) {
+function rowToTask_(row, idx, rowNum, tz, where) {
   const g = k => (idx[k] >= 0 ? row[idx[k]] : '');
   const s = k => String(g(k) == null ? '' : g(k)).trim();
-  const due = g('due'), fact = g('fact');
+  const due = g('due'), fact = g('fact'), start = g('start');
   return {
+    sheet: where ? where.name : '', gid: where ? where.gid : undefined,
+    start: start instanceof Date ? dstr_(start, tz) : '',
     row: rowNum, id: s('id'), week: s('week'), dept: s('dept'), product: s('product'), task: s('task'),
     r: s('r'), status: s('status') || STATUS.NEW, comment: s('comment'), result: s('result'),
     a: s('a'), c: s('c'), i: s('i'),
