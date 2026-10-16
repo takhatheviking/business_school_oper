@@ -22,6 +22,8 @@ def main_menu(tr: Translator, user: User | None) -> ReplyKeyboardMarkup:
         [KeyboardButton(text=tr("btn_lead")), KeyboardButton(text=tr("btn_my"))],
         [KeyboardButton(text=tr("btn_lang")), KeyboardButton(text=tr("btn_help"))],
     ]
+    if user is not None and user.is_team:
+        rows.insert(0, [KeyboardButton(text=tr("btn_tasks"))])
     if user is not None and user.role in (UserRole.STAFF, UserRole.ADMIN):
         staff_row = [KeyboardButton(text=tr("btn_checkin"))]
         if user.role == UserRole.ADMIN:

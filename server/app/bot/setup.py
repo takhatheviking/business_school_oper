@@ -6,14 +6,22 @@ from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.types import BotCommand, BotCommandScopeDefault
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from app.bot.handlers import booking, checkin, common, courses, events, fallback, leads, moderation, my, sales
+from app.bot.handlers import booking, checkin, common, courses, events, fallback, leads, moderation, my, sales, staff
 from app.bot.handlers.admin import build_router as build_admin_router
-from app.bot.middlewares import BridgeMiddleware, DbSessionMiddleware, MenuEscapeMiddleware, ThrottlingMiddleware, UserMiddleware
+from app.bot.middlewares import (
+    BridgeMiddleware,
+    DbSessionMiddleware,
+    MenuEscapeMiddleware,
+    TeamMiddleware,
+    ThrottlingMiddleware,
+    UserMiddleware,
+)
 from app.config import Settings
 from app.i18n import LANGS, all_variants, t
 from app.services.bridge import Bridge
+from app.services.tasks import board
 
-MENU_KEYS = ("btn_courses", "btn_events", "btn_lead", "btn_my", "btn_lang", "btn_help", "btn_admin", "btn_checkin", "btn_cancel")
+MENU_KEYS = ("btn_tasks", "btn_courses", "btn_events", "btn_lead", "btn_my", "btn_lang", "btn_help", "btn_admin", "btn_checkin", "btn_cancel")
 
 
 def create_bot(settings: Settings) -> Bot:
@@ -32,6 +40,9 @@ def create_dispatcher(settings: Settings, session_factory: async_sessionmaker[As
     dp = Dispatcher(storage=create_storage(settings), settings=settings, session_factory=session_factory)
     secret = settings.bridge_secret.get_secret_value() if settings.bridge_secret else None
     dp["bridge"] = Bridge(settings.bridge_url, secret)
+    board.configure(settings.status_sheet_id, settings.google_service_account_file, settings.tasks_see_all)
+    board.bridge = dp["bridge"]
+    dp["board"] = board
     throttle = dp["throttle"] = ThrottlingMiddleware()
     dp.message.outer_middleware(throttle)
     dp.callback_query.outer_middleware(throttle)
@@ -39,6 +50,7 @@ def create_dispatcher(settings: Settings, session_factory: async_sessionmaker[As
     dp.message.outer_middleware(BridgeMiddleware())
     dp.update.outer_middleware(DbSessionMiddleware(session_factory))
     dp.update.outer_middleware(UserMiddleware())
+    dp.update.outer_middleware(TeamMiddleware())
     # Order matters: generic handlers (receipt photos, unknown text) must come last.
     dp.include_routers(
         common.router,
@@ -46,6 +58,7 @@ def create_dispatcher(settings: Settings, session_factory: async_sessionmaker[As
         checkin.router,
         moderation.router,
         sales.router,
+        staff.router,
         courses.router,
         leads.router,
         events.router,

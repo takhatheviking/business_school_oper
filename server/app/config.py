@@ -49,6 +49,19 @@ class Settings(BaseSettings):
     bridge_url: str | None = None
     bridge_secret: SecretStr | None = None
 
+    # Staff tasks from the status spreadsheet (docs/STAFF.md). The service account of
+    # GOOGLE_SERVICE_ACCOUNT_FILE must be an Editor there. Empty: the staff part is off.
+    status_sheet_id: str | None = None
+    # Roles (as on «Команда») that see the summary of every department; department heads
+    # from «Справочник» and bot admins see theirs anyway.
+    tasks_see_all: Annotated[list[str], NoDecode] = Field(default_factory=list)
+    tasks_poll_seconds: int = 60
+
+    @field_validator("tasks_see_all", mode="before")
+    @classmethod
+    def _split_roles(cls, v):
+        return [x.strip() for x in v.split(",") if x.strip()] if isinstance(v, str) else v
+
     @field_validator("admin_ids", mode="before")
     @classmethod
     def _split_ids(cls, v):

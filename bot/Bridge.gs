@@ -33,6 +33,13 @@ function doPost(e) {
         chat_ids: uniq(team.people.map(p => p.chatId)),
       });
     }
+    if (req.action === 'heartbeat') {
+      // Сервер жив и (events) сам рассылает события смены статуса: onStatusEdit молчит, пока сигнал свежий.
+      const props = PropertiesService.getScriptProperties();
+      if (req.events) props.setProperty('SERVER_EVENTS_AT', String(Date.now()));
+      else props.deleteProperty('SERVER_EVENTS_AT');
+      return json_({ ok: true, test_chat_id: props.getProperty('TEST_CHAT_ID') || null });
+    }
     if (req.action === 'message' && req.message && req.message.chat) {
       const res = handleMessage_(req.message, team);
       return json_({ ok: true, client: res === 'client' });
@@ -49,6 +56,14 @@ function doPost(e) {
 /** Открыть адрес веб-приложения в браузере — проверка, что развёртывание живое. */
 function doGet() {
   return ContentService.createTextOutput('Мост бота работает. Сервер обращается сюда POST-запросами.');
+}
+
+const SERVER_EVENTS_TTL_MIN = 15;   // сервер шлёт сигнал раз в 5 минут; молчит дольше — таблица снова шлёт события сама
+
+/** Сервер сам рассылает события смены статуса (сверяет таблицу раз в минуту). */
+function serverHandlesEvents_() {
+  const at = Number(PropertiesService.getScriptProperties().getProperty('SERVER_EVENTS_AT') || 0);
+  return Date.now() - at < SERVER_EVENTS_TTL_MIN * 60 * 1000;
 }
 
 function json_(obj) {
@@ -85,6 +100,7 @@ function menuBridgeOff() {
   const props = PropertiesService.getScriptProperties();
   props.deleteProperty('BRIDGE_MODE');
   props.deleteProperty('BRIDGE_SECRET');   // старый секрет больше не подходит
+  props.deleteProperty('SERVER_EVENTS_AT');   // события статусов снова шлёт таблица
   ui.alert('Сервер отключён',
     'Остановите сервер (docker compose down), затем нажмите «Бот → 2. Включить бота» — таблица снова будет читать входящие раз в ' +
     CONFIG.POLL_MINUTES + ' минут. Пока работают оба, сообщения могут теряться.',

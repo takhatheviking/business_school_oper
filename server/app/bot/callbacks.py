@@ -61,6 +61,17 @@ class SalesCb(CallbackData, prefix="sl"):
     lead_id: int
 
 
+class TaskCb(CallbackData, prefix="tk"):
+    action: str  # open | work | done | risk | accept | return | cancel
+    task_id: str
+    page: int = 0  # the list page to come back to
+
+
+class TasksCb(CallbackData, prefix="tl"):
+    action: str  # home | mine | review | summary | dept
+    page: int = 0  # list page, or the department's number on the summary
+
+
 class AdminCb(CallbackData, prefix="ad"):
     action: str
     event_id: int = 0

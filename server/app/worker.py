@@ -5,6 +5,7 @@ SKIP LOCKED, but the delivery and re-post retries assume no second worker."""
 
 import asyncio
 import logging
+import time
 from datetime import timedelta
 
 from aiogram import Bot
@@ -19,6 +20,8 @@ from app.formatting import esc, fmt_dt
 from app.i18n import Translator, t
 from app.services.booking import expire_due_orders, find_duplicate_orders, now_utc, pending_reviews
 from app.services.gsheets import describe_error, sheets
+from app.services.task_events import announce
+from app.services.tasks import board
 from app.services.notify import (
     alert_admins,
     deliver_tickets,
@@ -136,7 +139,50 @@ async def send_reminders(bot: Bot, session: AsyncSession, settings: Settings) ->
     await session.commit()
 
 
-JOBS = (expire_holds, retry_ticket_delivery, retry_review_posts, alert_stale_reviews, send_reminders, sync_sheets)
+HEARTBEAT_SECONDS = 300
+
+
+async def sync_tasks(bot: Bot, session: AsyncSession, settings: Settings) -> None:
+    """Status spreadsheet: find status changes and announce them (app/services/tasks.py).
+
+    The heartbeat to the Apps Script comes first: it brings the spreadsheet's test mode, which
+    must be known before anything is sent. The server claims the status events only while
+    its polls succeed; otherwise the script goes on sending them itself."""
+    if not board.enabled:
+        return
+    bridge = board.bridge if board.bridge is not None and board.bridge.enabled else None
+    now = time.monotonic()
+
+    async def beat(events: bool) -> None:
+        board.last_heartbeat = now
+        ok, test_chat = await bridge.heartbeat(events=events)
+        if ok:
+            board.test_chat_id, board.events_claimed = test_chat, events
+
+    if bridge and now - board.last_heartbeat >= HEARTBEAT_SECONDS:
+        await beat(board.events_claimed)
+    if now - board.last_poll < settings.tasks_poll_seconds:
+        return
+    board.last_poll = now
+    try:
+        changes = await board.poll(session)
+    except Exception as e:  # noqa: BLE001 - shown to admins once per distinct problem
+        error = describe_error(e)
+        log.warning("status spreadsheet poll failed: %s", error)
+        if board.last_error != error:
+            board.last_error = error
+            await alert_admins(bot, session, settings, t(settings.default_lang, "tk_alert_failed", error=esc(error)))
+        if bridge and board.events_claimed:
+            await beat(False)
+        return
+    board.last_error = None
+    if bridge and not board.events_claimed:
+        await beat(True)
+    for change in changes:
+        await announce(bot, session, settings, board, change)
+
+
+JOBS = (expire_holds, retry_ticket_delivery, retry_review_posts, alert_stale_reviews, send_reminders, sync_sheets, sync_tasks)
 
 
 async def run_worker(bot: Bot, session_factory: async_sessionmaker[AsyncSession], settings: Settings) -> None:

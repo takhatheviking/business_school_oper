@@ -18,12 +18,13 @@ const sandbox = {
 };
 vm.createContext(sandbox);
 const code = ['Code.gs', 'Bridge.gs'].map(f => fs.readFileSync(path.join(__dirname, '..', f), 'utf8')).join('\n;\n');
-vm.runInContext(code + ';globalThis.api = { doPost, pollUpdates, clientReply_ };', sandbox);
+vm.runInContext(code + ';globalThis.api = { doPost, pollUpdates, clientReply_, serverHandlesEvents_, onStatusEdit };', sandbox);
 const { api } = sandbox;
 
 let sent = [], writes = [];
 sandbox.tgCall_ = (method, payload) => { if (method === 'sendMessage') sent.push(payload); if (method === 'getUpdates') throw new Error('polled'); return {}; };
-sandbox.logEvent_ = () => {};
+let logged = [];
+sandbox.logEvent_ = (...a) => logged.push(a);
 sandbox.ss_ = () => ({});
 const person = (row, role, username, chatId) => ({ row, role, name: '', username, chatId: chatId || '', notify: true, aliases: [], generic: [], products: [] });
 const team = {
@@ -65,5 +66,18 @@ eq(sent.length, 1);
 store.BRIDGE_MODE = '1';
 api.pollUpdates();  // tgCall_('getUpdates') бросил бы ошибку
 checks++;
+
+// Сигнал жизни: сервер шлёт события сам — таблица молчит, пока сигнал свежий; тестовый чат сервер узнаёт отсюда
+store.TEST_CHAT_ID = '42';
+eq(post({ secret: 's3cret', action: 'heartbeat', events: true }), { ok: true, test_chat_id: '42' });
+eq(api.serverHandlesEvents_(), true);
+const touched = { range: { getSheet() { throw new Error('таблица тронута'); }, getLastRow: () => 5 } };
+logged = [];
+api.onStatusEdit(touched);
+eq(logged.length, 0);   // правка статуса при живом сервере: скрипт молчит, события шлёт сервер
+store.SERVER_EVENTS_AT = String(Date.now() - 16 * 60 * 1000);
+eq(api.serverHandlesEvents_(), false);   // сервер пропал — события снова из таблицы
+eq(post({ secret: 's3cret', action: 'heartbeat', events: false }), { ok: true, test_chat_id: '42' });
+eq(store.SERVER_EVENTS_AT, undefined);
 
 console.log('OK: ' + checks + ' проверок моста');

@@ -148,6 +148,8 @@ class User(TimestampMixin, Base):
     bot_blocked: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("false"))
     # Where the person first came from: the tag of the deep link (t.me/<bot>?start=ig), never overwritten.
     source: Mapped[str | None] = mapped_column(String(64))
+    # On the «Команда» sheet of the task spreadsheet: gets the "Tasks" button. Refreshed on every visit.
+    is_team: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("false"))
 
     @property
     def full_name(self) -> str:
@@ -374,6 +376,22 @@ class Lead(TimestampMixin, Base):
             postgresql_where=text("status IN ('new', 'in_work')"),
         ),
     )
+
+
+class TaskState(Base):
+    """The last status the bot saw for a task of the status spreadsheet (by its ID), and the
+    approver's acceptance, which lives only here. A difference from the sheet is an event."""
+
+    __tablename__ = "task_states"
+
+    task_id: Mapped[str] = mapped_column(String(32), primary_key=True)
+    status: Mapped[str] = mapped_column(String(16))
+    changed_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    accepted_at: Mapped[datetime | None]
+    accepted_by: Mapped[str | None] = mapped_column(String(128))
+    accepted_by_tg_id: Mapped[int | None] = mapped_column(BigInteger)
+    # C hears about the start once, even if the task goes back and forth.
+    c_notified: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("false"))
 
 
 class Notification(Base):

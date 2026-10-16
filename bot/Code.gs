@@ -243,6 +243,7 @@ function dailyJob() {
 function onStatusEdit(e) {
   try {
     if (!e || !e.range) return;
+    if (typeof serverHandlesEvents_ === 'function' && serverHandlesEvents_()) return;   // события статусов шлёт сервер (Bridge.gs)
     const sh = e.range.getSheet();
     if (e.range.getLastRow() < 2) return;
     const head = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0];

@@ -7,7 +7,8 @@
 - **Proactive.** Каталог курсов: карточка с датой старта, расписанием, стоимостью и афишей; тексты на RU / UZ / EN.
 - **Proactive.** Заявки на курс или консультацию: имя, телефон, вопрос → карточка в чате продавцов с кнопками статуса.
 - **Proactive.** Метки источника в ссылках (`?start=c_3-ig`): запоминаются при первом заходе и попадают в заявки.
-- **Proactive.** Мост к статусной таблице задач: команды сотрудников уходят в Apps Script (папка `bot/`).
+- **Proactive.** Мост к статусной таблице задач: регистрация и тестовый режим сотрудников остаются в Apps Script (папка `bot/`).
+- **Proactive.** Задачи сотрудников: статусы, приёмка, сводка по отделам и сообщения по RACI прямо из статусной таблицы — [STAFF.md](STAFF.md).
 - Показывает опубликованные ивенты: дата, место, карта, цена, сколько мест осталось.
 - Бронирует места: выбор типа билета и количества, места держатся `HOLD_MINUTES` (30 мин) на время оплаты.
 - Принимает оплату **переводом на карту**: пользователь присылает скрин или PDF чека, чек уходит в чат модерации, модератор жмёт «Одобрить» или «Отклонить».
@@ -45,7 +46,8 @@ Redis — хранилище FSM (шаги диалогов переживают
 | Фон | `app/worker.py` | периодические задачи |
 | Тексты | `app/i18n/locales/{ru,uz,en}.toml` | все строки интерфейса |
 | Курсы и заявки | `app/services/courses.py`, `course_form.py`, `lead_cards.py` | каталог, форма курса, заявки и их статусы, карточка для продавцов |
-| Мост | `app/services/bridge.py`, `BridgeMiddleware` в `app/bot/middlewares.py` | список сотрудников и пересылка их команд в Apps Script |
+| Мост | `app/services/bridge.py`, `BridgeMiddleware` в `app/bot/middlewares.py` | список сотрудников и пересылка их команд в Apps Script, сигнал жизни |
+| Задачи сотрудников | `app/services/status_sheet.py`, `team.py`, `tasks.py`, `task_events.py`, `app/bot/handlers/staff.py` | чтение и запись статусной таблицы, сопоставление людей (перенос из Apps Script), права, приёмка, сверка статусов, события RACI |
 
 ## База данных
 
@@ -68,6 +70,7 @@ app_settings                        (карта для оплаты, чаты м
 | `tickets` | `code` (unique), `token` (unique, секрет QR), `status` valid/used/cancelled, `checked_in_at/by`, `image_file_id`, `delivered_at` | билеты и вход |
 | `courses` | `title`, `description`, `schedule` (+ переводы в `i18n`), `starts_on`, `price_tiyin` (NULL — по запросу), `poster_file_id`, `status` draft/published | каталог |
 | `leads` | `user_id`, `course_id` (NULL — консультация), `name`, `phone`, `comment`, `lang`, `source`, `status` new/in_work/enrolled/rejected, `manager_*`, `card_chat_id/message_id` | заявки |
+| `task_states` | `task_id` (ID задачи из таблицы), `status` (последний увиденный), `accepted_at/by`, `c_notified` | сверка статусов с таблицей и приёмка утверждающим; сами задачи живут в таблице |
 
 Деньги хранятся целыми числами в тийинах (1 сум = 100 тийин) — в том же формате, что ждёт Payme.
 

@@ -99,6 +99,17 @@ class Bridge:
             return BridgeReply(ok=False)
         return BridgeReply(ok=True, client=bool(data.get("client")))
 
+    async def heartbeat(self, events: bool) -> tuple[bool, int | None]:
+        """Tell the script the server is alive and (events=True) sends status events itself, so the
+        script stays quiet for a while. Returns (ok, the spreadsheet's test chat or None)."""
+        try:
+            data = await self._post({"action": "heartbeat", "events": events})
+        except Exception as e:  # noqa: BLE001 - the script then keeps sending events itself
+            log.warning("bridge heartbeat failed: %s", e)
+            return False, None
+        test = str(data.get("test_chat_id") or "")
+        return True, int(test) if test.lstrip("-").isdigit() else None
+
     async def close(self) -> None:
         if self._http is not None:
             await self._http.close()

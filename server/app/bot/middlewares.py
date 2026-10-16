@@ -101,6 +101,25 @@ class MenuEscapeMiddleware(BaseMiddleware):
         return await handler(event, data)
 
 
+class TeamMiddleware(BaseMiddleware):
+    """data["team"]: the person's rows on «Команда» of the status spreadsheet (empty for
+    clients). Uses the last read of the sheet, which the worker refreshes every minute, so
+    a client's message never waits for Google. Keeps users.is_team in sync for the menu."""
+
+    async def __call__(self, handler: Handler, event: TelegramObject, data: dict[str, Any]) -> Any:
+        board = data.get("board")
+        tg_user: TgUser | None = data.get("event_from_user")
+        user: User | None = data.get("user")
+        team = []
+        if board is not None and board.snapshot is not None and tg_user is not None and user is not None:
+            team = board.snapshot.staff(tg_user.username, tg_user.id)
+            if bool(team) != user.is_team:
+                user.is_team = bool(team)
+                await data["session"].commit()
+        data["team"] = team
+        return await handler(event, data)
+
+
 class BridgeMiddleware(BaseMiddleware):
     """Staff commands go to the task spreadsheet's Apps Script (app/services/bridge.py):
 
@@ -140,6 +159,8 @@ class BridgeMiddleware(BaseMiddleware):
             return await handler(event, data) if reply.client else None
         if cmd not in ("my", "start", "help") or not await bridge.is_staff(event.from_user, event.chat.id):
             return await handler(event, data)
+        if cmd == "my" and data.get("team"):
+            return await handler(event, data)  # the server reads the status spreadsheet itself (handlers/staff.py)
         if cmd == "my":
             reply = await bridge.forward(event)
             if not reply.ok:

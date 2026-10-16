@@ -67,3 +67,7 @@ class CourseCreateSG(StatesGroup):
 class CourseEditSG(StatesGroup):
     form = State()
     poster = State()
+
+
+class TaskSG(StatesGroup):
+    reason = State()  # risk, return or cancel: why
