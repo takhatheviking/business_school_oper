@@ -101,6 +101,58 @@ class MenuEscapeMiddleware(BaseMiddleware):
         return await handler(event, data)
 
 
+class BridgeMiddleware(BaseMiddleware):
+    """Staff commands go to the task spreadsheet's Apps Script (app/services/bridge.py):
+
+    /team, /test   always forwarded, the script answers; a stranger falls through to the bot.
+    /my            staff: their tasks from the spreadsheet; everyone else: "My tickets".
+    /start, /help  staff: forwarded too (/start only until the chat is registered),
+                   then the bot shows its own menu or help as usual.
+    /start Роль    in a group: subscribes the group to a role on the "Команда" sheet.
+    """
+
+    ALWAYS = {"team", "test"}
+
+    async def __call__(self, handler: Handler, event: TelegramObject, data: dict[str, Any]) -> Any:
+        bridge = data.get("bridge")
+        text = getattr(event, "text", None)
+        if bridge is None or not bridge.enabled or not text or not text.startswith("/") or event.from_user is None:
+            return await handler(event, data)
+        head, _, args = text.partition(" ")
+        cmd, args = head[1:].split("@", 1)[0].lower(), args.strip()
+
+        if event.chat.type in ("group", "supergroup"):
+            if cmd == "start" and args:
+                await bridge.forward(event)
+                bridge.forget_staff()
+                return None
+            return await handler(event, data)
+        if event.chat.type != "private":
+            return await handler(event, data)
+
+        tr: Translator = data["tr"]
+        if cmd in self.ALWAYS:
+            reply = await bridge.forward(event)
+            bridge.forget_staff()
+            if not reply.ok:
+                await event.answer(tr("bridge_down"))
+                return None
+            return await handler(event, data) if reply.client else None
+        if cmd not in ("my", "start", "help") or not await bridge.is_staff(event.from_user, event.chat.id):
+            return await handler(event, data)
+        if cmd == "my":
+            reply = await bridge.forward(event)
+            if not reply.ok:
+                await event.answer(tr("bridge_down"))
+            return None
+        if args:  # /start with a deep link (an event, a ticket to check in): the bot's business
+            return await handler(event, data)
+        if cmd == "help" or not await bridge.is_registered(event.chat.id):
+            await bridge.forward(event)
+            bridge.forget_staff()
+        return await handler(event, data)
+
+
 class RoleFilter(Filter):
     def __init__(self, *roles: UserRole):
         self.roles = set(roles)

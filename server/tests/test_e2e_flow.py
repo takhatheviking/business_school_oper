@@ -67,7 +67,7 @@ class FakeSession(BaseSession):
     async def make_request(self, bot: Bot, method: TelegramMethod, timeout: int | None = None) -> Any:
         self.calls.append(method)
         if isinstance(method, GetMe):
-            return TgUser(id=BOT_ID, is_bot=True, first_name="Focused", username="focused_test_bot")
+            return TgUser(id=BOT_ID, is_bot=True, first_name="Proactive", username="proactive_test_bot")
         if isinstance(method, GetChatMember):
             return ChatMemberOwner(user=TgUser(id=method.user_id, is_bot=False, first_name="x"), is_anonymous=False)
         if isinstance(method, (SendMessage, SendPhoto, SendDocument)) and int(method.chat_id) in self.blocked:
@@ -146,7 +146,7 @@ async def test_full_purchase_journey(h: Harness, factory):
     await h.send(ADMIN, "⚙️ Админка")
     await h.press(ADMIN, "ad:card_edit:0:0:")
     await h.send(ADMIN, "8600 1234 5678 9012")
-    await h.send(ADMIN, "FOCUSED LLC")
+    await h.send(ADMIN, "PROACTIVE LLC")
     await h.send(ADMIN, "Kapitalbank")
 
     await h.press(ADMIN, "ad:new_event:0:0:")

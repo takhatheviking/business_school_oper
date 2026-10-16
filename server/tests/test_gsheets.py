@@ -32,7 +32,7 @@ class FakeWorksheet:
 
 
 class FakeSpreadsheet:
-    title = "Focused reports"
+    title = "Proactive reports"
 
     def __init__(self):
         self.tabs: dict[int, FakeWorksheet] = {}
@@ -79,9 +79,9 @@ async def test_sync_creates_tabs_and_skips_unchanged(session, tmp_path):
     result = await approve_payment(session, payment_id=payment.id, moderator_tg_id=9, moderator_name="Mod")
     await session.commit()
 
-    assert await sync.sync(session, settings) == 2  # "All orders" + the event tab
+    assert await sync.sync(session, settings) == 3  # "Leads" + "All orders" + the event tab
     tabs = {ws.title: ws for ws in client.spreadsheet.worksheets()}
-    assert "Все заказы" in tabs
+    assert "Все заказы" in tabs and "Заявки" in tabs
     event_tab = next(ws for title, ws in tabs.items() if title.startswith("#"))
     header = event_tab.values[4]
     row = event_tab.values[5]
@@ -111,6 +111,24 @@ async def test_tab_mapping_survives_restart(session, tmp_path):
     restarted._client_for = lambda _settings: client
     await restarted.sync(session, settings)
     assert len(client.spreadsheet.tabs) == created  # rewritten in place, no duplicates
+
+
+async def test_leads_tab_follows_status_changes(session, tmp_path):
+    from app.services.courses import change_lead_status, create_lead
+
+    sync, client, settings = make_sync(tmp_path)
+    user = await make_user(session, 7, username="client", source="ig_reels")
+    lead, created = await create_lead(session, user=user, course_id=None, name="Азиз", phone="+998901234567", comment="=HYPERLINK(1)", lang="uz")
+    assert created
+    await sync.sync(session, settings)
+    leads_tab = {ws.title: ws for ws in client.spreadsheet.worksheets()}["Заявки"]
+    row = leads_tab.values[5]
+    assert row[0] == lead.id and row[2] == "новая" and row[3] == "Азиз" and row[6] == "Консультация"
+    assert row[7] == "=HYPERLINK(1)" and row[8] == "UZ" and row[9] == "ig_reels"  # written RAW: no formula injection
+
+    await change_lead_status(session, lead_id=lead.id, action="take", manager_tg_id=5, manager_name="Продавец")
+    assert await sync.sync(session, settings) == 1
+    assert leads_tab.values[5][2] == "в работе" and leads_tab.values[5][10] == "Продавец"
 
 
 def test_parse_sheet_id():

@@ -6,8 +6,9 @@ import pytest
 
 from app.bot.handlers.admin.edit import EVENT_FIELDS, TYPE_FIELDS
 from app.bot.keyboards import REJECT_REASONS
-from app.db.models import EventStatus, OrderStatus, PaymentMethod, TicketStatus
+from app.db.models import CourseStatus, EventStatus, LeadStatus, OrderStatus, PaymentMethod, TicketStatus
 from app.i18n import LANGS
+from app.services import course_form
 from app.services.event_form import sections
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -16,7 +17,9 @@ PLACEHOLDER = re.compile(r"\{([a-z_]+)\}")
 KEY_PREFIXES = (
     "adm_", "ask_", "booking_", "btn_", "ci_", "cmd_", "edit_", "err_", "event_", "field_", "mod_", "my_",
     "form_", "xls_", "gs_", "issue_", "order_", "pay_", "payment_", "price_", "receipt_", "reject_", "reminder_", "ticket_", "tt_", "wiz_",
+    "course_", "courses_", "lead_", "sales_", "bridge_",
 )
+MENU_KEYS = ("btn_courses", "btn_events", "btn_lead", "btn_my", "btn_lang", "btn_help", "btn_admin", "btn_checkin", "btn_cancel")
 
 
 def catalog(lang: str) -> dict[str, str]:
@@ -32,6 +35,9 @@ def dynamic_keys() -> set[str]:
     keys |= {f"field_{f}" for f in EVENT_FIELDS + TYPE_FIELDS} | {f"edit_prompt_{f}" for f in EVENT_FIELDS + TYPE_FIELDS}
     keys |= {s.label_key for s in sections(with_ticket=True)}
     keys |= {f"xls_ticket_{s}" for s in TicketStatus} | {f"xls_method_{m}" for m in PaymentMethod}
+    keys |= {f"adm_status_{s}" for s in CourseStatus}
+    keys |= {f"lead_status_{s}" for s in LeadStatus} | {f"sales_by_{s}" for s in LeadStatus}
+    keys |= {s.label_key for s in course_form.sections()}
     return keys
 
 
@@ -52,6 +58,7 @@ def test_every_used_key_exists_in_russian():
         "ticket_type", "ticket_types", "tt_", "tt_add", "tt_capacity", "tt_name", "tt_price", "tt_toggle", "wiz_save",
         "edit_form", "form_example", "form_fix", "form_no_poster", "form_text", "gs_set", "gs_sync",
         "issue_go", "issue_qty", "issue_tt", "tt_id",
+        "course_edit", "course_example", "course_fix", "course_id", "course_no_poster", "course_poster", "course_pub", "course_save",
     }
     missing = sorted((static_keys() | dynamic_keys()) - set(ru) - not_keys)
     assert missing == []
@@ -75,8 +82,22 @@ def test_menu_buttons_are_distinct(lang):
     if not path.exists():
         pytest.skip(f"{lang}.toml not written yet")
     c = catalog(lang)
-    labels = [c[k] for k in ("btn_events", "btn_my", "btn_lang", "btn_help", "btn_admin", "btn_checkin", "btn_cancel")]
+    labels = [c[k] for k in MENU_KEYS]
     assert len(set(labels)) == len(labels)
+
+
+def test_menu_keys_match_dispatcher():
+    from app.bot import setup
+
+    assert setup.MENU_KEYS == MENU_KEYS
+
+
+@pytest.mark.parametrize("ui", LANGS)
+def test_course_form_labels_are_unique(ui):
+    # The form parser finds sections by label in any language, so no two may look alike.
+    labels = [course_form.header(s, lang)[1:-1].lower() for s in course_form.sections() for lang in LANGS]
+    per_section = len(LANGS)
+    assert len(set(labels)) >= len(labels) // per_section
 
 
 def test_dispatcher_builds(dispatcher):

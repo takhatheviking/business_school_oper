@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 from enum import StrEnum
 from typing import Any
 
@@ -6,6 +6,7 @@ from sqlalchemy import (
     BigInteger,
     Boolean,
     CheckConstraint,
+    Date,
     DateTime,
     ForeignKey,
     Index,
@@ -69,7 +70,7 @@ class PaymentMethod(StrEnum):
     CARD_TRANSFER = "card_transfer"
     FREE = "free"
     MANUAL = "manual"  # issued by an admin: guests, speakers, cash payments
-    # Planned: CLICK = "click", PAYME = "payme" (through the focused.uz API)
+    # Planned: CLICK = "click", PAYME = "payme"
 
 
 class PaymentStatus(StrEnum):
@@ -82,6 +83,21 @@ class TicketStatus(StrEnum):
     VALID = "valid"
     USED = "used"
     CANCELLED = "cancelled"
+
+
+class CourseStatus(StrEnum):
+    DRAFT = "draft"
+    PUBLISHED = "published"
+
+
+class LeadStatus(StrEnum):
+    NEW = "new"  # waiting for a sales manager
+    IN_WORK = "in_work"  # a manager took it
+    ENROLLED = "enrolled"  # the person joined a course
+    REJECTED = "rejected"  # declined, unreachable or spam
+
+
+OPEN_LEAD_STATUSES = (LeadStatus.NEW, LeadStatus.IN_WORK)
 
 
 class LocalizedMixin:
@@ -130,6 +146,8 @@ class User(TimestampMixin, Base):
     lang: Mapped[str | None] = mapped_column(String(2))
     role: Mapped[str] = mapped_column(String(16), default=UserRole.USER, server_default=UserRole.USER)
     bot_blocked: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("false"))
+    # Where the person first came from: the tag of the deep link (t.me/<bot>?start=ig), never overwritten.
+    source: Mapped[str | None] = mapped_column(String(64))
 
     @property
     def full_name(self) -> str:
@@ -266,7 +284,7 @@ class Payment(TimestampMixin, Base):
     # Last time admins were alerted that this receipt still waits for a decision.
     alerted_at: Mapped[datetime | None]
 
-    # Online gateways (Click/Payme via focused.uz) will use these.
+    # Online gateways (Click/Payme) will use these.
     external_id: Mapped[str | None] = mapped_column(String(128))
     raw: Mapped[dict[str, Any] | None]
 
@@ -299,6 +317,63 @@ class Ticket(Base):
     ticket_type: Mapped[TicketType] = relationship(lazy="joined", innerjoin=True)
     user: Mapped[User] = relationship(lazy="joined", innerjoin=True, foreign_keys=[user_id])
     order: Mapped["Order"] = relationship(lazy="joined", innerjoin=True)
+
+
+class Course(LocalizedMixin, TimestampMixin, Base):
+    """A course or training in the catalog. People do not buy it in the bot: they leave a
+    lead, and sales take it from there."""
+
+    __tablename__ = "courses"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    title: Mapped[str] = mapped_column(String(255))
+    description: Mapped[str | None] = mapped_column(Text)
+    schedule: Mapped[str | None] = mapped_column(String(255))  # days, hours, duration, format
+    starts_on: Mapped[date | None] = mapped_column(Date)
+    price_tiyin: Mapped[int | None] = mapped_column(BigInteger)  # NULL: price on request
+    poster_file_id: Mapped[str | None] = mapped_column(String(255))
+    status: Mapped[str] = mapped_column(String(16), default=CourseStatus.DRAFT, server_default=CourseStatus.DRAFT)
+    created_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+
+    __table_args__ = (CheckConstraint("price_tiyin IS NULL OR price_tiyin >= 0", name="price_non_negative"),)
+
+
+class Lead(TimestampMixin, Base):
+    """A request to join a course or to get a consultation (course_id is NULL then).
+    Sales work it from the leads chat with status buttons."""
+
+    __tablename__ = "leads"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="RESTRICT"), index=True)
+    course_id: Mapped[int | None] = mapped_column(ForeignKey("courses.id", ondelete="SET NULL"), index=True)
+    name: Mapped[str] = mapped_column(String(255))
+    phone: Mapped[str] = mapped_column(String(32))
+    comment: Mapped[str | None] = mapped_column(Text)
+    lang: Mapped[str | None] = mapped_column(String(2))
+    source: Mapped[str | None] = mapped_column(String(64))
+    status: Mapped[str] = mapped_column(String(16), default=LeadStatus.NEW, server_default=LeadStatus.NEW)
+    manager_tg_id: Mapped[int | None] = mapped_column(BigInteger)
+    manager_name: Mapped[str | None] = mapped_column(String(128))
+    status_changed_at: Mapped[datetime | None]
+    # The card in the leads chat, so a status change updates it in place.
+    card_chat_id: Mapped[int | None] = mapped_column(BigInteger)
+    card_message_id: Mapped[int | None] = mapped_column(BigInteger)
+
+    user: Mapped[User] = relationship(lazy="joined", innerjoin=True)
+    course: Mapped[Course | None] = relationship(lazy="joined")
+
+    __table_args__ = (
+        Index("ix_leads_status_created_at", "status", "created_at"),
+        # One open lead per person and course: double taps and impatient re-sends add nothing.
+        Index(
+            "uq_leads_one_open_per_user_course",
+            "user_id",
+            text("coalesce(course_id, 0)"),
+            unique=True,
+            postgresql_where=text("status IN ('new', 'in_work')"),
+        ),
+    )
 
 
 class Notification(Base):

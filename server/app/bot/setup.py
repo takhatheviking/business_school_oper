@@ -6,13 +6,14 @@ from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.types import BotCommand, BotCommandScopeDefault
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from app.bot.handlers import booking, checkin, common, events, fallback, moderation, my
+from app.bot.handlers import booking, checkin, common, courses, events, fallback, leads, moderation, my, sales
 from app.bot.handlers.admin import build_router as build_admin_router
-from app.bot.middlewares import DbSessionMiddleware, MenuEscapeMiddleware, ThrottlingMiddleware, UserMiddleware
+from app.bot.middlewares import BridgeMiddleware, DbSessionMiddleware, MenuEscapeMiddleware, ThrottlingMiddleware, UserMiddleware
 from app.config import Settings
 from app.i18n import LANGS, all_variants, t
+from app.services.bridge import Bridge
 
-MENU_KEYS = ("btn_events", "btn_my", "btn_lang", "btn_help", "btn_admin", "btn_checkin", "btn_cancel")
+MENU_KEYS = ("btn_courses", "btn_events", "btn_lead", "btn_my", "btn_lang", "btn_help", "btn_admin", "btn_checkin", "btn_cancel")
 
 
 def create_bot(settings: Settings) -> Bot:
@@ -29,10 +30,13 @@ def create_storage(settings: Settings) -> BaseStorage:
 
 def create_dispatcher(settings: Settings, session_factory: async_sessionmaker[AsyncSession]) -> Dispatcher:
     dp = Dispatcher(storage=create_storage(settings), settings=settings, session_factory=session_factory)
+    secret = settings.bridge_secret.get_secret_value() if settings.bridge_secret else None
+    dp["bridge"] = Bridge(settings.bridge_url, secret)
     throttle = dp["throttle"] = ThrottlingMiddleware()
     dp.message.outer_middleware(throttle)
     dp.callback_query.outer_middleware(throttle)
     dp.message.outer_middleware(MenuEscapeMiddleware({text for key in MENU_KEYS for text in all_variants(key)}))
+    dp.message.outer_middleware(BridgeMiddleware())
     dp.update.outer_middleware(DbSessionMiddleware(session_factory))
     dp.update.outer_middleware(UserMiddleware())
     # Order matters: generic handlers (receipt photos, unknown text) must come last.
@@ -41,6 +45,9 @@ def create_dispatcher(settings: Settings, session_factory: async_sessionmaker[As
         build_admin_router(),
         checkin.router,
         moderation.router,
+        sales.router,
+        courses.router,
+        leads.router,
         events.router,
         my.router,
         booking.router,

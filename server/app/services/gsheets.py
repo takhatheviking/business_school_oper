@@ -1,7 +1,7 @@
-"""Live mirror of events into one Google Spreadsheet.
+"""Live mirror of leads and events into one Google Spreadsheet.
 
-Layout: a tab per event with its participants (same table as the Excel report) and one
-"All orders" tab. The bot rewrites a tab only when its data changed, every
+Layout: a "Leads" tab, an "All orders" tab and a tab per event with its participants
+(same table as the Excel report). The bot rewrites a tab only when its data changed, every
 SHEETS_SYNC_MINUTES, or immediately on "Sync now".
 
 Access: a Google service account (JSON key at GOOGLE_SERVICE_ACCOUNT_FILE). New service
@@ -28,7 +28,7 @@ from app.config import Settings
 from app.db.models import Event, EventStatus
 from app.i18n import t
 from app.services import app_settings
-from app.services.export import ACCENT, BAND, HEADER_ROW, Table, orders_table, participants_table, stamped_title_lines
+from app.services.export import ACCENT, BAND, HEADER_ROW, Table, leads_table, orders_table, participants_table, stamped_title_lines
 
 log = logging.getLogger(__name__)
 SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
@@ -240,7 +240,10 @@ class SheetsSync:
                     .order_by(Event.starts_at)
                 )
             ).scalars()
-            tables = [("orders", t(lang, "gs_tab_orders"), await orders_table(session, lang, tz))]
+            tables = [
+                ("leads", t(lang, "gs_tab_leads"), await leads_table(session, lang, tz)),
+                ("orders", t(lang, "gs_tab_orders"), await orders_table(session, lang, tz)),
+            ]
             for event in events:
                 tables.append((f"event:{event.id}", tab_title(event, lang, tz), await participants_table(session, event, lang, tz)))
 

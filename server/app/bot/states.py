@@ -49,3 +49,21 @@ class GSheetSG(StatesGroup):
 
 class StaffSG(StatesGroup):
     pick = State()
+
+
+class LeadSG(StatesGroup):
+    name = State()
+    phone = State()
+    comment = State()
+    confirm = State()
+
+
+class CourseCreateSG(StatesGroup):
+    form = State()
+    poster = State()
+    confirm = State()
+
+
+class CourseEditSG(StatesGroup):
+    form = State()
+    poster = State()

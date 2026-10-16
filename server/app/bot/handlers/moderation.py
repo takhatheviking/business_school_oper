@@ -164,4 +164,6 @@ async def on_added_to_chat(event: ChatMemberUpdated, session: AsyncSession, sett
     tr = Translator(user.lang or settings.default_lang)
     b = InlineKeyboardBuilder()
     b.button(text=tr("adm_modchat_use"), callback_data=AdminCb(action="set_modchat", value=str(event.chat.id)))
+    b.button(text=tr("adm_leadchat_use"), callback_data=AdminCb(action="set_leadchat", value=str(event.chat.id)))
+    b.adjust(1)
     await safe_send(bot, session, user.tg_id, tr("adm_modchat_offer", title=esc(event.chat.title or str(event.chat.id))), reply_markup=b.as_markup())

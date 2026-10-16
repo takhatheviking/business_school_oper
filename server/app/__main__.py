@@ -28,6 +28,7 @@ async def main() -> None:
     async def on_shutdown() -> None:
         if worker_task:
             worker_task.cancel()
+        await dp["bridge"].close()
         await engine.dispose()
 
     await bot.delete_webhook(drop_pending_updates=False)

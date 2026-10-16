@@ -17,7 +17,7 @@ target_metadata = Base.metadata
 class DbSettings(BaseSettings):
     # Only the URL: migrations must not require BOT_TOKEN and friends.
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
-    database_url: str = "postgresql+asyncpg://focused:focused@localhost:5432/focused_bot"
+    database_url: str = "postgresql+asyncpg://proactive:proactive@localhost:5432/proactive_bot"
 
 
 def run_migrations_offline() -> None:

@@ -46,6 +46,21 @@ class CheckInCb(CallbackData, prefix="ci"):
     token: str  # the QR secret, so staff cannot check in arbitrary tickets by id
 
 
+class CourseCb(CallbackData, prefix="cs"):
+    action: str  # list | open
+    course_id: int = 0
+
+
+class LeadCb(CallbackData, prefix="ld"):
+    action: str  # start | send | abort
+    course_id: int = 0  # 0: a general consultation
+
+
+class SalesCb(CallbackData, prefix="sl"):
+    action: str  # take | enrolled | rejected | reopen
+    lead_id: int
+
+
 class AdminCb(CallbackData, prefix="ad"):
     action: str
     event_id: int = 0

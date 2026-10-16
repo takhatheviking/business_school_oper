@@ -4,15 +4,14 @@
 choose_lang_all = "🌐 Выберите язык · Tilni tanlang · Choose your language"
 welcome = """Hi, {name}! 👋
 
-I'm the <b>Focused</b> events bot. Here you can browse upcoming events, book a seat and get your ticket.
+I'm the bot of <b>Proactive</b> business school. Here you can learn about our courses and trainings, leave a request, sign up for events and get your ticket.
 
 Pick a section from the menu below."""
 help = """<b>How it works</b>
 
-1. “🎟 Events” — pick an event.
-2. Tap “Buy ticket”, choose how many and confirm the booking — your seats are held while you pay.
-3. Transfer the amount to the card the bot shows you and send a screenshot of the receipt here.
-4. Once the payment is checked, the bot sends your ticket with a QR code — show it at the entrance.
+📚 “Courses” — the school's programs: dates, schedule, fees. Like a course? Tap “Sign up for the course” and a manager will get in touch.
+📝 “Leave a request” — sign up for a course or get a free consultation.
+🎟 “Events” — open events. Pick one and confirm your registration or booking; for paid events, transfer the amount to the card and send the receipt here. Your ticket with a QR code arrives here too — show it at the entrance.
 
 All your tickets are in “🎫 My tickets”.
 Questions: {support}"""
@@ -318,11 +317,11 @@ adm_modchat_howto = """How to connect: create a private channel or group for mod
 
 Receipts can be approved by that chat's admins and the bot's admins."""
 adm_btn_modchat_test = "🔄 Test access"
-adm_modchat_test_msg = "✅ This chat is connected for Focused receipt moderation."
+adm_modchat_test_msg = "✅ This chat is connected for Proactive receipt moderation."
 adm_modchat_test_ok = "The bot can post in the moderation chat ✅"
 adm_modchat_test_fail = "The bot can't post in the chat: {error}"
-adm_modchat_offer = "The bot was added to “{title}”. Use this chat for receipt moderation?"
-adm_modchat_use = "✅ Yes, use it"
+adm_modchat_offer = "The bot was added to “{title}”. What should this chat be used for?"
+adm_modchat_use = "🛡 For receipt moderation"
 
 # --- Team ---
 adm_staff_title = """👥 <b>Team</b>
@@ -432,7 +431,7 @@ Service account: <code>{email}</code>
 Spreadsheet: {sheet}
 Last sync: {last}
 
-The bot keeps a tab per event (participants) plus an “All orders” tab, updated every couple of minutes."""
+The bot keeps a “Requests” tab, an “All orders” tab and a tab per event (participants), updated every couple of minutes."""
 gs_no_sheet = "not set"
 gs_never = "not yet"
 gs_error_line = "⚠️ Error: {error}"
@@ -478,3 +477,111 @@ issue_btn_go = "✅ Issue"
 issue_tg_failed = "{user} hasn't opened the bot yet, so Telegram won't let the bot message them first. The ticket was sent to you — please forward it."
 issue_done_sent = "✅ Ticket sent to {user}. Code: {codes}"
 issue_done_forward = "✅ Ticket issued, code: {codes}. Forward the image above to the guest."
+
+# --- Courses and requests (Proactive) ---
+btn_courses = "📚 Courses"
+btn_lead = "📝 Leave a request"
+btn_all_courses = "« All courses"
+btn_enroll = "📝 Sign up for the course"
+btn_consult = "💬 I need a consultation"
+courses_title = "Courses and trainings ({n}). Pick one for details:"
+no_courses = "Enrollment opens soon. Leave a request and you'll be the first to know 🙌"
+course_start = "🗓 Starts: {date}"
+course_price_on_request = "Fee on request"
+course_lead_exists = "✅ Your request #{id} is with a manager — they will contact you."
+err_course_unavailable = "This course is not available right now."
+lead_consultation = "Consultation"
+lead_choose = "Which course is your request for? Not sure yet — choose a consultation."
+lead_ask_name = "How should we address you? Type your name or tap the button below."
+lead_err_name = "Please type your name — 2 to 100 characters."
+lead_ask_phone = "Leave your phone number so a manager can contact you: tap the button below or type it, e.g. <code>+998 90 123 45 67</code>."
+lead_err_phone = "That doesn't look like a phone number. Example: <code>+998 90 123 45 67</code>."
+lead_ask_comment = "Any question, or a good time to call you? Type it or tap “Skip”."
+lead_err_comment = "Too long — please keep it under {max} characters."
+lead_send_text = "Please reply with text — or tap “✖️ Cancel”."
+lead_almost = "Almost done 👇"
+lead_summary = """<b>Check your request</b>
+
+Interested in: {interest}
+Name: {name}
+Phone: {phone}
+Comment: {comment}"""
+lead_btn_send = "✅ Send request"
+lead_sent = "Thank you! Request #{id} received ✅ A manager will contact you during business hours."
+lead_exists = "You already have request #{id} — a manager will contact you soon."
+lead_aborted = "The request was not sent."
+lead_status_new = "new"
+lead_status_in_work = "in progress"
+lead_status_enrolled = "enrolled"
+lead_status_rejected = "declined"
+
+# --- Requests chat (chat language = DEFAULT_LANG) ---
+sales_title = "{icon} <b>Request #{id}</b> · {status}"
+sales_interest = "Interested in: <b>{interest}</b>"
+sales_name = "Name: {name}"
+sales_phone = "Phone: {phone}"
+sales_telegram = "Telegram: {username} · id <code>{tg_id}</code>"
+sales_meta = "Language: {language} · Source: {source} · {at}"
+sales_comment = "Comment: {comment}"
+sales_by_new = "🆕 New — {by}, {at}"
+sales_by_in_work = "🙋 Taken by {by} on {at}"
+sales_by_enrolled = "✅ Enrolled — {by}, {at}"
+sales_by_rejected = "❌ Declined — {by}, {at}"
+sales_btn_take = "🙋 I'll take it"
+sales_btn_enrolled = "✅ Enrolled"
+sales_btn_rejected = "❌ Declined"
+sales_btn_reopen = "↩️ Back to work"
+sales_not_found = "Request not found."
+sales_already = "This request is already with {by}."
+
+# --- Admin: courses and requests ---
+adm_btn_courses = "📚 Courses"
+adm_btn_leads = "📋 Requests"
+adm_btn_leadchat = "💬 Requests chat"
+adm_btn_new_course = "➕ New course"
+adm_btn_course_edit = "📝 Texts, start, fee"
+adm_courses_title = "Courses ({n}): 🟢 published · 📝 draft"
+adm_courses_empty = "No courses yet. Add the first one 👇"
+adm_course_no_start = "🗓 Starts: date to be announced"
+adm_course_leads = "📋 Requests: 🆕 {new} · 🙋 {in_work} · ✅ {enrolled} · ❌ {rejected}"
+adm_leads_title = """📋 <b>Requests</b>
+
+Open: {open}
+🆕 new: {new} · 🙋 in progress: {in_work}
+✅ enrolled: {enrolled} · ❌ declined: {rejected}
+
+Tap a request to open its card with status buttons."""
+adm_leads_empty = "No open requests ✅"
+course_form_intro = """<b>New course</b>
+
+Copy the form below (tap it), fill it in and send it back as one message.
+
+• Write under the [bracketed] headings and keep the headings as they are.
+• Only Title RU is required. An empty UZ/EN translation or “-” shows the Russian text.
+• Schedule — days, hours, duration, format: <code>Fri and Sun, 10:00–18:00 · 17 class days</code>.
+• Start: <code>20.11.2026</code>, or “-” if the date is not set yet.
+• Fee in sums, or “-” for “on request”.
+
+You'll send the poster in the next step."""
+course_ask_poster = "Form accepted ✅ Now send the course poster (as a picture) or tap “Skip”."
+course_preview_header = "<b>Check the course</b>"
+course_edit_intro = "The course's current data is below. Copy the form, fix what you need and send it as one message."
+course_err_date = "Couldn't read the start date. Example: <code>20.11.2026</code> or “-”."
+form_schedule = "Schedule"
+form_starts_on = "Start"
+form_course_price = "Fee"
+adm_leadchat_current = "💬 Requests chat: <b>{title}</b>"
+adm_leadchat_none = "💬 No requests chat yet — requests go to admins' DMs."
+adm_leadchat_howto = """How to connect: create a private group for the sales team and add the bot to it — the bot will offer the owner (ADMIN_IDS) to use it for requests.
+
+Everyone in that chat and the bot's admins can change request statuses."""
+adm_leadchat_test_msg = "✅ This chat is connected for Proactive course requests."
+adm_leadchat_test_ok = "The bot can post to the requests chat ✅"
+adm_leadchat_use = "💬 For course requests"
+adm_leadchat_changed = "ℹ️ Requests chat changed ({by}): {title}."
+
+# --- Task spreadsheet bridge and Google Sheet ---
+bridge_down = "⚠️ Staff commands are unavailable right now: the task spreadsheet is not responding. Try again in a couple of minutes."
+gs_tab_leads = "Requests"
+xls_leads_headers = "#|Created|Status|Name|Phone|Telegram|Interested in|Comment|Lang|Source|Manager|Changed"
+xls_leads_summary = "New: {new} · In progress: {in_work} · Enrolled: {enrolled} · Declined: {rejected}"

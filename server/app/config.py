@@ -10,7 +10,7 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
     bot_token: SecretStr
-    database_url: str = "postgresql+asyncpg://focused:focused@localhost:5432/focused_bot"
+    database_url: str = "postgresql+asyncpg://proactive:proactive@localhost:5432/proactive_bot"
     redis_url: str | None = None
 
     # Telegram ids of super-admins. They get the admin role on /start and are never demoted.
@@ -29,8 +29,9 @@ class Settings(BaseSettings):
     # Alert admins when a receipt waits for a decision longer than this.
     review_alert_minutes: int = 120
 
-    # Fallbacks; admins can override both from the bot (/admin -> Settings).
+    # Fallbacks; admins can override these from the bot (/admin -> Settings).
     moderation_chat_id: int | None = None
+    leads_chat_id: int | None = None
     payment_card_number: str | None = None
     payment_card_holder: str | None = None
     payment_card_bank: str | None = None
@@ -42,6 +43,11 @@ class Settings(BaseSettings):
 
     support_username: str | None = None
     ticket_font_path: str | None = None
+
+    # Bridge to the Apps Script of the task-status spreadsheet (bot/Bridge.gs): staff commands
+    # (/my tasks, /team, /test) go there. Both empty: the bridge is off.
+    bridge_url: str | None = None
+    bridge_secret: SecretStr | None = None
 
     @field_validator("admin_ids", mode="before")
     @classmethod

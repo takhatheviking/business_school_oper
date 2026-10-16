@@ -13,7 +13,7 @@ from openpyxl.worksheet.worksheet import Worksheet
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.models import Event, Order, Payment, PaymentStatus, Ticket
+from app.db.models import Event, Lead, Order, Payment, PaymentStatus, Ticket
 from app.formatting import fmt_dt, fmt_money
 from app.i18n import t
 from app.services.events import event_stats
@@ -171,6 +171,48 @@ async def orders_table(session: AsyncSession, lang: str, tz: ZoneInfo, event: Ev
         styles=ORDER_STYLE,
         status_labels={s: t(lang, f"order_status_{s}") for s in ORDER_STYLE},
         kinds=kinds,
+    )
+
+
+LEAD_STYLE = {
+    "new": ("DBEAFE", "1E40AF"),
+    "in_work": ("FEF3C7", "92400E"),
+    "enrolled": ("DCFCE7", "166534"),
+    "rejected": ("F3F4F6", "6B7280"),
+}
+
+
+async def leads_table(session: AsyncSession, lang: str, tz: ZoneInfo, limit: int = 5000) -> Table:
+    """All leads, newest first. Statuses are changed with the buttons in the leads chat."""
+    leads = list((await session.execute(select(Lead).order_by(Lead.id.desc()).limit(limit))).scalars())
+    counts = {s: sum(1 for x in leads if x.status == s) for s in LEAD_STYLE}
+    summary = t(lang, "xls_leads_summary", new=counts["new"], in_work=counts["in_work"], enrolled=counts["enrolled"], rejected=counts["rejected"])
+    return Table(
+        title_lines=[t(lang, "gs_tab_leads"), "", summary],
+        headers=t(lang, "xls_leads_headers").split("|"),
+        widths=[8, 17, 15, 26, 17, 18, 30, 40, 6, 14, 26, 17],
+        rows=[
+            [
+                x.id,
+                _local(x.created_at, tz),
+                t(lang, f"lead_status_{x.status}"),
+                x.name,
+                x.phone,
+                f"@{x.user.username}" if x.user.username else "",
+                x.course.loc("title", lang) if x.course else t(lang, "lead_consultation"),
+                x.comment or "",
+                (x.lang or "").upper(),
+                x.source or "",
+                x.manager_name or "",
+                _local(x.status_changed_at, tz),
+            ]
+            for x in leads
+        ],
+        status_col=3,
+        status_keys=[x.status for x in leads],
+        styles=LEAD_STYLE,
+        status_labels={s: t(lang, f"lead_status_{s}") for s in LEAD_STYLE},
+        kinds={2: "date", 12: "date"},
     )
 
 

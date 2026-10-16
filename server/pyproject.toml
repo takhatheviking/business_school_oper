@@ -1,7 +1,7 @@
 [project]
-name = "focused-bot"
+name = "proactive-bot"
 version = "0.1.0"
-description = "Telegram event manager bot for focused.uz: events, bookings, card-transfer payments with moderation, QR tickets"
+description = "Telegram bot of Proactive business school: course catalog and leads, events, bookings, card-transfer payments with moderation, QR tickets"
 requires-python = ">=3.12"
 dependencies = [
     "aiogram>=3.13,<4",

@@ -14,7 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from app.db.models import Base, Event, EventStatus, TicketType, User
 
 E2E_ADMIN, E2E_MOD_CHAT = 111, -100500
-TEST_URL = os.environ.get("TEST_DATABASE_URL", "postgresql+asyncpg://focused:focused@localhost:5432/focused_bot_test")
+TEST_URL = os.environ.get("TEST_DATABASE_URL", "postgresql+asyncpg://proactive:proactive@localhost:5432/proactive_bot_test")
 
 
 async def _ensure_database(url: str) -> None:

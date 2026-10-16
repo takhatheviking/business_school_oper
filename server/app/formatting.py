@@ -1,6 +1,6 @@
 import html
 import re
-from datetime import datetime
+from datetime import date, datetime
 from zoneinfo import ZoneInfo
 
 MONTHS = {
@@ -40,6 +40,24 @@ def fmt_dt(dt: datetime, tz: ZoneInfo, lang: str, with_weekday: bool = True) -> 
     else:
         date = f"{local.day} {month} {local.year}"
     return f"{date}{wd} · {local:%H:%M}"
+
+
+def fmt_date(value: date, lang: str) -> str:
+    lang = lang if lang in MONTHS else "ru"
+    month = MONTHS[lang][value.month - 1]
+    if lang == "en":
+        return f"{month} {value.day}, {value.year}"
+    if lang == "uz":
+        return f"{value.day}-{month}, {value.year}"
+    return f"{value.day} {month} {value.year}"
+
+
+def normalize_phone(text: str) -> str | None:
+    """A typed phone number as +998XXXXXXXXX; nine digits are taken as an Uzbek number."""
+    digits = re.sub(r"\D", "", text)
+    if len(digits) == 9:
+        digits = "998" + digits
+    return f"+{digits}" if 10 <= len(digits) <= 15 else None
 
 
 def fmt_card(number: str) -> str:

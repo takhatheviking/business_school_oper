@@ -18,7 +18,8 @@ remove_kb = ReplyKeyboardRemove()
 
 def main_menu(tr: Translator, user: User | None) -> ReplyKeyboardMarkup:
     rows = [
-        [KeyboardButton(text=tr("btn_events")), KeyboardButton(text=tr("btn_my"))],
+        [KeyboardButton(text=tr("btn_courses")), KeyboardButton(text=tr("btn_events"))],
+        [KeyboardButton(text=tr("btn_lead")), KeyboardButton(text=tr("btn_my"))],
         [KeyboardButton(text=tr("btn_lang")), KeyboardButton(text=tr("btn_help"))],
     ]
     if user is not None and user.role in (UserRole.STAFF, UserRole.ADMIN):
@@ -99,12 +100,15 @@ def refund_kb(payment_id: int, lang: str) -> InlineKeyboardMarkup:
 
 def admin_menu_kb(tr: Translator) -> InlineKeyboardMarkup:
     b = InlineKeyboardBuilder()
+    b.button(text=tr("adm_btn_courses"), callback_data=AdminCb(action="courses"))
+    b.button(text=tr("adm_btn_leads"), callback_data=AdminCb(action="leads"))
     b.button(text=tr("adm_btn_events"), callback_data=AdminCb(action="events"))
     b.button(text=tr("adm_btn_new_event"), callback_data=AdminCb(action="new_event"))
     b.button(text=tr("adm_btn_reviews"), callback_data=AdminCb(action="reviews"))
     b.button(text=tr("adm_btn_refunds"), callback_data=AdminCb(action="refunds"))
     b.button(text=tr("adm_btn_card"), callback_data=AdminCb(action="card"))
     b.button(text=tr("adm_btn_modchat"), callback_data=AdminCb(action="modchat"))
+    b.button(text=tr("adm_btn_leadchat"), callback_data=AdminCb(action="leadchat"))
     b.button(text=tr("adm_btn_staff"), callback_data=AdminCb(action="staff"))
     b.button(text=tr("adm_btn_gsheet"), callback_data=AdminCb(action="gsheet"))
     b.button(text=tr("adm_btn_stats"), callback_data=AdminCb(action="stats"))

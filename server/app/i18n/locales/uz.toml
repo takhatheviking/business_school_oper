@@ -2,17 +2,16 @@
 
 # --- General ---
 choose_lang_all = "🌐 Выберите язык · Tilni tanlang · Choose your language"
-welcome = """Salom, {name}! 👋
+welcome = """Assalomu alaykum, {name}! 👋
 
-Men <b>Focused</b> tadbirlar botiman. Bu yerda yaqin tadbirlarni koʻrish, joy bron qilish va chipta olish mumkin.
+Men <b>Proactive</b> biznes maktabining botiman. Bu yerda kurslar va treninglar haqida bilib olish, ariza qoldirish, tadbirlarga yozilish va chipta olish mumkin.
 
 Quyidagi menyudan boʻlimni tanlang."""
 help = """<b>Qanday ishlaydi</b>
 
-1. «🎟 Tadbirlar» — tadbirni tanlang.
-2. «Chipta olish» tugmasini bosing, sonini tanlang va bronni tasdiqlang — toʻlov vaqtida joylar siz uchun band turadi.
-3. Bot koʻrsatgan kartaga summani oʻtkazing va chek skrinshotini shu yerga yuboring.
-4. Toʻlov tekshirilgach, bot QR-kodli chipta yuboradi — uni kirishda koʻrsating.
+📚 «Kurslar» — maktab dasturlari: sanalar, jadval, narx. Kurs yoqdimi — «Kursga yozilish» tugmasini bosing, menejer siz bilan bogʻlanadi.
+📝 «Ariza qoldirish» — kursga yozilish yoki bepul konsultatsiya.
+🎟 «Tadbirlar» — ochiq tadbirlar. Tanlang va yozilishni yoki bronni tasdiqlang; pullik tadbirlar uchun summani kartaga oʻtkazib, chekni shu yerga yuboring. QR-kodli chipta shu yerga keladi — uni kirishda koʻrsating.
 
 Barcha chiptalar «🎫 Chiptalarim» boʻlimida.
 Savollar uchun: {support}"""
@@ -318,11 +317,11 @@ adm_modchat_howto = """Qanday ulash mumkin: moderatorlar uchun yopiq kanal yoki 
 
 Cheklarni shu chat administratorlari va bot adminlari tasdiqlay oladi."""
 adm_btn_modchat_test = "🔄 Ruxsatni tekshirish"
-adm_modchat_test_msg = "✅ Bu chat Focused cheklarini moderatsiya qilish uchun ulandi."
+adm_modchat_test_msg = "✅ Bu chat Proactive cheklarini moderatsiya qilish uchun ulandi."
 adm_modchat_test_ok = "Bot moderatsiya chatiga yoza oladi ✅"
 adm_modchat_test_fail = "Bot chatga yoza olmayapti: {error}"
-adm_modchat_offer = "Bot «{title}» chatiga qoʻshildi. Cheklarni moderatsiya qilish uchun shu chatdan foydalanilsinmi?"
-adm_modchat_use = "✅ Ha, foydalanish"
+adm_modchat_offer = "Bot «{title}» chatiga qoʻshildi. Bu chatdan nima uchun foydalanilsin?"
+adm_modchat_use = "🛡 Cheklarni moderatsiya qilish uchun"
 
 # --- Team ---
 adm_staff_title = """👥 <b>Jamoa</b>
@@ -432,7 +431,7 @@ Xizmat hisobi: <code>{email}</code>
 Jadval: {sheet}
 Oxirgi sinxronlash: {last}
 
-Bot har bir tadbir uchun varaq (ishtirokchilar) va umumiy «Barcha buyurtmalar» varagʻini yuritadi va ularni har bir-ikki daqiqada yangilaydi."""
+Bot «Arizalar» varagʻini, umumiy «Barcha buyurtmalar» varagʻini va har bir tadbir uchun varaq (ishtirokchilar) yuritadi va ularni har bir-ikki daqiqada yangilaydi."""
 gs_no_sheet = "koʻrsatilmagan"
 gs_never = "hali boʻlmagan"
 gs_error_line = "⚠️ Xato: {error}"
@@ -478,3 +477,111 @@ issue_btn_go = "✅ Berish"
 issue_tg_failed = "{user} hali botni ishga tushirmagan, shuning uchun Telegram unga birinchi boʻlib yozishga ruxsat bermaydi. Chipta sizga yuborildi — uni yuboring."
 issue_done_sent = "✅ Chipta {user} ga yuborildi. Kod: {codes}"
 issue_done_forward = "✅ Chipta berildi, kod: {codes}. Yuqoridagi rasmni mehmonga yuboring."
+
+# --- Kurslar va arizalar (Proactive) ---
+btn_courses = "📚 Kurslar"
+btn_lead = "📝 Ariza qoldirish"
+btn_all_courses = "« Barcha kurslar"
+btn_enroll = "📝 Kursga yozilish"
+btn_consult = "💬 Konsultatsiya kerak"
+courses_title = "Kurslar va treninglar ({n}). Batafsil maʼlumot uchun tanlang:"
+no_courses = "Kurslarga qabul tez orada ochiladi. Ariza qoldiring — birinchi boʻlib xabar beramiz 🙌"
+course_start = "🗓 Boshlanishi: {date}"
+course_price_on_request = "Narxi — soʻrov boʻyicha"
+course_lead_exists = "✅ №{id} arizangiz menejerda — u siz bilan bogʻlanadi."
+err_course_unavailable = "Kurs hozircha mavjud emas."
+lead_consultation = "Konsultatsiya"
+lead_choose = "Qaysi kursga ariza qoldirasiz? Hali qaror qilmagan boʻlsangiz — konsultatsiyani tanlang."
+lead_ask_name = "Sizga qanday murojaat qilaylik? Ismingizni yozing yoki pastdagi tugmani bosing."
+lead_err_name = "Ismingizni yozing — 2 dan 100 belgigacha."
+lead_ask_phone = "Menejer siz bilan bogʻlanishi uchun telefon raqamingizni qoldiring: pastdagi tugmani bosing yoki raqamni yozing, masalan <code>+998 90 123 45 67</code>."
+lead_err_phone = "Bu telefon raqamiga oʻxshamaydi. Masalan: <code>+998 90 123 45 67</code>."
+lead_ask_comment = "Savolingiz yoki qoʻngʻiroq uchun qulay vaqt bormi? Yozing yoki «Oʻtkazib yuborish» tugmasini bosing."
+lead_err_comment = "Juda uzun — {max} belgidan oshmasin."
+lead_send_text = "Iltimos, matn bilan javob bering — yoki «✖️ Bekor qilish» tugmasini bosing."
+lead_almost = "Deyarli tayyor 👇"
+lead_summary = """<b>Arizani tekshiring</b>
+
+Qiziqish: {interest}
+Ism: {name}
+Telefon: {phone}
+Izoh: {comment}"""
+lead_btn_send = "✅ Arizani yuborish"
+lead_sent = "Rahmat! №{id} ariza qabul qilindi ✅ Menejer ish vaqtida siz bilan bogʻlanadi."
+lead_exists = "Sizda allaqachon №{id} ariza bor — menejer tez orada bogʻlanadi."
+lead_aborted = "Ariza yuborilmadi."
+lead_status_new = "yangi"
+lead_status_in_work = "ishlanmoqda"
+lead_status_enrolled = "yozildi"
+lead_status_rejected = "rad etildi"
+
+# --- Arizalar chati (chat tili = DEFAULT_LANG) ---
+sales_title = "{icon} <b>Ariza №{id}</b> · {status}"
+sales_interest = "Qiziqish: <b>{interest}</b>"
+sales_name = "Ism: {name}"
+sales_phone = "Telefon: {phone}"
+sales_telegram = "Telegram: {username} · id <code>{tg_id}</code>"
+sales_meta = "Til: {language} · Manba: {source} · {at}"
+sales_comment = "Izoh: {comment}"
+sales_by_new = "🆕 Yangi — {by}, {at}"
+sales_by_in_work = "🙋 {by} ishlamoqda, {at} dan"
+sales_by_enrolled = "✅ Yozildi — {by}, {at}"
+sales_by_rejected = "❌ Rad etildi — {by}, {at}"
+sales_btn_take = "🙋 Olaman"
+sales_btn_enrolled = "✅ Yozildi"
+sales_btn_rejected = "❌ Rad etildi"
+sales_btn_reopen = "↩️ Qayta ishga olish"
+sales_not_found = "Ariza topilmadi."
+sales_already = "Ariza allaqachon {by} ishida."
+
+# --- Admin panel: kurslar va arizalar ---
+adm_btn_courses = "📚 Kurslar"
+adm_btn_leads = "📋 Arizalar"
+adm_btn_leadchat = "💬 Arizalar chati"
+adm_btn_new_course = "➕ Yangi kurs"
+adm_btn_course_edit = "📝 Matnlar, boshlanishi, narx"
+adm_courses_title = "Kurslar ({n}): 🟢 eʼlon qilingan · 📝 qoralama"
+adm_courses_empty = "Hozircha kurslar yoʻq. Birinchisini qoʻshing 👇"
+adm_course_no_start = "🗓 Boshlanishi: sana aniqlanmoqda"
+adm_course_leads = "📋 Arizalar: 🆕 {new} · 🙋 {in_work} · ✅ {enrolled} · ❌ {rejected}"
+adm_leads_title = """📋 <b>Arizalar</b>
+
+Ochiq: {open}
+🆕 yangi: {new} · 🙋 ishlanmoqda: {in_work}
+✅ yozildi: {enrolled} · ❌ rad etildi: {rejected}
+
+Holat tugmalari bor kartani ochish uchun arizani bosing."""
+adm_leads_empty = "Ochiq arizalar yoʻq ✅"
+course_form_intro = """<b>Yangi kurs</b>
+
+Quyidagi shaklni nusxalang (ustiga bosing), toʻldiring va bitta xabar qilib yuboring.
+
+• Matnni [qavs] ichidagi sarlavha ostiga yozing, sarlavhalarni oʻzgartirmang.
+• Faqat Nomi RU majburiy. UZ/EN tarjimasi boʻsh yoki «-» boʻlsa — foydalanuvchilar ruscha matnni koʻradi.
+• Jadval — kunlar, vaqt, davomiylik, format: <code>juma va yakshanba, 10:00–18:00 · 17 oʻquv kuni</code>.
+• Boshlanishi: <code>20.11.2026</code> yoki sana aniqlanmagan boʻlsa «-».
+• Narxi soʻmda yoki «-» — «soʻrov boʻyicha».
+
+Afishani keyingi qadamda yuborasiz."""
+course_ask_poster = "Shakl qabul qilindi ✅ Endi kurs afishasini (rasm sifatida) yuboring yoki «Oʻtkazib yuborish» tugmasini bosing."
+course_preview_header = "<b>Kursni tekshiring</b>"
+course_edit_intro = "Kursning joriy maʼlumotlari quyida. Shaklni nusxalang, keraklisini tuzating va bitta xabar qilib yuboring."
+course_err_date = "Boshlanish sanasini tushunmadim. Masalan: <code>20.11.2026</code> yoki «-»."
+form_schedule = "Jadval"
+form_starts_on = "Boshlanishi"
+form_course_price = "Kurs narxi"
+adm_leadchat_current = "💬 Arizalar chati: <b>{title}</b>"
+adm_leadchat_none = "💬 Arizalar chati ulanmagan — arizalar adminlarga shaxsiy xabarda keladi."
+adm_leadchat_howto = """Qanday ulash mumkin: sotuvchilar uchun yopiq guruh yarating va botni unga qoʻshing — bot egasiga (ADMIN_IDS) shu guruhdan arizalar uchun foydalanishni taklif qiladi.
+
+Arizalar holatini shu chatning barcha ishtirokchilari va bot adminlari oʻzgartira oladi."""
+adm_leadchat_test_msg = "✅ Bu chat Proactive kurslariga arizalar uchun ulandi."
+adm_leadchat_test_ok = "Bot arizalar chatiga yoza oladi ✅"
+adm_leadchat_use = "💬 Kurslarga arizalar uchun"
+adm_leadchat_changed = "ℹ️ Arizalar chati oʻzgartirildi ({by}): {title}."
+
+# --- Vazifalar jadvali bilan koʻprik va Google Sheets ---
+bridge_down = "⚠️ Xizmat buyruqlari hozir ishlamayapti: vazifalar jadvali javob bermayapti. Bir-ikki daqiqadan soʻng urinib koʻring."
+gs_tab_leads = "Arizalar"
+xls_leads_headers = "№|Yaratilgan|Holat|Ism|Telefon|Telegram|Qiziqish|Izoh|Til|Manba|Menejer|Oʻzgartirilgan"
+xls_leads_summary = "Yangi: {new} · Ishlanmoqda: {in_work} · Yozildi: {enrolled} · Rad etildi: {rejected}"

@@ -10,6 +10,7 @@ from app.db.models import AppSetting
 
 PAYMENT_CARD = "payment_card"
 MODERATION_CHAT = "moderation_chat"
+LEADS_CHAT = "leads_chat"
 
 
 @dataclass
@@ -52,3 +53,14 @@ async def get_moderation_chat(session: AsyncSession, settings: Settings) -> tupl
 
 async def set_moderation_chat(session: AsyncSession, chat_id: int, title: str | None) -> None:
     await set_value(session, MODERATION_CHAT, {"chat_id": chat_id, "title": title})
+
+
+async def get_leads_chat(session: AsyncSession, settings: Settings) -> tuple[int | None, str | None]:
+    value = await get_value(session, LEADS_CHAT)
+    if value and value.get("chat_id"):
+        return int(value["chat_id"]), value.get("title")
+    return settings.leads_chat_id, None
+
+
+async def set_leads_chat(session: AsyncSession, chat_id: int, title: str | None) -> None:
+    await set_value(session, LEADS_CHAT, {"chat_id": chat_id, "title": title})

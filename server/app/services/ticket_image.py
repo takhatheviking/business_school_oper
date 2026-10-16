@@ -89,7 +89,7 @@ def render_ticket(view: TicketView, font_path: str | None = None) -> bytes:
     d.rounded_rectangle(card, radius=36, fill=CARD)
     d.rounded_rectangle((40, 40, W - 40, 190), radius=36, fill=HEADER)
     d.rectangle((40, 150, W - 40, 190), fill=HEADER)
-    d.text((PAD + 10, 82), "FOCUSED", font=f(True, 52), fill="white")
+    d.text((PAD + 10, 82), "PROACTIVE", font=f(True, 52), fill="white")
     label = "E-TICKET"
     d.text((W - PAD - 10 - d.textlength(label, font=f(True, 30)), 96), label, font=f(True, 30), fill="#A5B4FC")
 

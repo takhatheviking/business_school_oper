@@ -168,7 +168,7 @@ async def cb_export(cb: CallbackQuery, callback_data: AdminCb, tr: Translator, s
     data = await build_event_report(session, event, tr.lang, settings.tz)
     stamp = now_utc().astimezone(settings.tz).strftime("%Y-%m-%d")
     await cb.message.answer_document(
-        BufferedInputFile(data, filename=f"focused-event-{event.id}-{stamp}.xlsx"),
+        BufferedInputFile(data, filename=f"proactive-event-{event.id}-{stamp}.xlsx"),
         caption=tr("adm_export_caption", title=esc(event.loc("title", tr.lang))),
     )
 

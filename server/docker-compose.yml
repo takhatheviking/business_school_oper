@@ -3,15 +3,15 @@ services:
     image: postgres:16-alpine
     restart: unless-stopped
     environment:
-      POSTGRES_USER: focused
+      POSTGRES_USER: proactive
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
-      POSTGRES_DB: focused_bot
+      POSTGRES_DB: proactive_bot
     volumes:
       - pgdata:/var/lib/postgresql/data
     ports:
       - "127.0.0.1:5432:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U focused -d focused_bot"]
+      test: ["CMD-SHELL", "pg_isready -U proactive -d proactive_bot"]
       interval: 5s
       timeout: 3s
       retries: 10
@@ -28,7 +28,7 @@ services:
     restart: unless-stopped
     env_file: .env
     environment:
-      DATABASE_URL: postgresql+asyncpg://focused:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@db:5432/focused_bot
+      DATABASE_URL: postgresql+asyncpg://proactive:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@db:5432/proactive_bot
       REDIS_URL: redis://redis:6379/0
     volumes:
       # Google service account key (docs/GOOGLE_SHEETS.md), read-only
