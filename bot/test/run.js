@@ -4,15 +4,19 @@ const fs = require('fs');
 const path = require('path');
 const vm = require('vm');
 
-const sandbox = { console };
+const store = {};
+const props = {
+  getProperty: k => (k in store ? store[k] : null), setProperty: (k, v) => { store[k] = v; }, deleteProperty: k => { delete store[k]; },
+};
+const sandbox = { console, PropertiesService: { getScriptProperties: () => props } };
 vm.createContext(sandbox);
 vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'Code.gs'), 'utf8') +
-  ';globalThis.api = { makeContext_, buildDigest_, buildReminders_, buildStatusEvents_, matchPeople_, splitList_ };', sandbox);
+  ';globalThis.api = { makeContext_, buildDigest_, buildReminders_, buildStatusEvents_, matchPeople_, splitList_, handleMessage_, CONFIG };', sandbox);
 const { api } = sandbox;
 
 const person = (row, role, o = {}) => ({
   row, role, name: o.name || '', dept: '', aliases: api.splitList_(o.aliases), generic: api.splitList_(o.generic),
-  products: api.splitList_(o.products), username: '', chatId: '', notify: o.notify !== false,
+  products: api.splitList_(o.products), username: o.username || '', chatId: o.chatId || '', notify: o.notify !== false,
 });
 const people = [
   person(2, 'Руководитель', { name: 'Анвар', aliases: 'анвара' }),
@@ -70,8 +74,6 @@ eq(reminders.length, 2);
 ok(reminders.every(r => r.text.includes('До срока 2 дня')), 'текст напоминания');
 
 // Смена статусов
-const store = {};
-const props = { getProperty: k => (k in store ? store[k] : null), setProperty: (k, v) => { store[k] = v; } };
 const byId = id => tasks.find(t => t.id === id);
 byId('A-2').status = 'Готово';
 byId('E-1').status = 'Готово';
@@ -81,5 +83,55 @@ const events = api.buildStatusEvents_(ctx, [byId('A-2'), byId('E-1'), byId('M-2'
 eq(events.map(e => e.kind + '→' + e.person.role).sort().join(', '), 'на приёмку→Руководитель, риск→Маркетолог');
 ok(events.find(e => e.kind === 'риск').text.includes('Ждём исходники'), 'комментарий в сообщении о риске');
 eq(api.buildStatusEvents_(ctx, [byId('A-2')], props).length, 0);         // тот же статус второй раз не шлём
+
+// Входящие сообщения: бот общий для команды и клиентов
+let sent = [], calls = [], logs = [], writes = [];
+sandbox.tgCall_ = (method, payload) => { calls.push({ method, payload }); if (method === 'sendMessage') sent.push(payload); return {}; };
+sandbox.logEvent_ = (...a) => logs.push(a);
+sandbox.loadContext_ = () => { throw new Error('клиенту не нужны задачи'); };
+const team = {
+  sheet: { getRange: (r, c) => ({ setValue: v => writes.push([r, c, v]) }) },
+  idx: { chatId: 5 },
+  people: [
+    person(2, 'Маркетолог', { username: 'lola_m' }),
+    person(3, 'Продавцы', { username: 'группа' }),
+  ],
+};
+const say = (text, from = {}, chat = { id: 555, type: 'private' }) => {
+  sent = []; calls = []; logs = []; writes = [];
+  api.handleMessage_({ text, from, chat }, team);
+  return sent.map(s => s.text).join('\n---\n');
+};
+const greeting = api.CONFIG.CLIENT_GREETING;
+const client = { username: 'Some_Client', first_name: 'Азиз' };
+
+let out = say('/start', client);
+eq(out, greeting);                                                         // клиенту — только приветствие школы
+ok(!/команд|chat_id|555/i.test(out), 'клиент не видит служебного');
+eq(logs[0].slice(0, 2).join(' '), 'клиент @Some_Client');                 // но в журнале он есть
+eq(say('/start', { first_name: 'Без username' }), greeting);              // без username — то же приветствие
+eq(say('Сколько стоит курс?', client), greeting);
+eq(say('/my', client), greeting);                                         // служебные команды клиенту не отвечают
+eq(say('/help', client), greeting);
+eq(say('/test', client), greeting);
+ok(!/555/.test(say('/team', client)), 'скрытая /team не выдаёт chat_id тому, у кого есть username');
+
+store.TEST_ARM_UNTIL = String(Date.now() + 60000);
+store.TEST_CODE = '424242';
+eq(say('/test 111111', client), greeting);                                 // чужой код — не тестовый чат
+eq(store.TEST_CHAT_ID, undefined);
+
+out = say('/start', { username: 'Lola_M' }, { id: 777, type: 'private' });
+ok(out.includes('вы подписаны: Маркетолог'), 'сотрудник подписывается по username');
+eq(JSON.stringify(writes), '[[2,6,"777"]]');                               // chat_id записан в его строку
+ok(calls.some(c => c.method === 'setMyCommands' && c.payload.scope.chat_id === '777'), 'у сотрудника своё меню');
+ok(say('привет', {}, { id: 777, type: 'private' }).includes('/my'), 'подписанного узнаёт по chat_id');
+ok(say('/test 424242', { username: 'lola_m' }, { id: 777, type: 'private' }).includes('Тестовый режим включён'), 'тест с верным кодом');
+eq(store.TEST_CHAT_ID, '777');
+eq(store.TEST_CODE, undefined);                                           // код одноразовый
+
+ok(say('/start Продавцы', {}, { id: -100, type: 'group' }).includes('чат подписан: Продавцы'), 'общий чат роли');
+ok(say('/start Маркетолог', {}, { id: -100, type: 'group' }).includes('Не могу подписать'), 'чат — только ролям «группа»');
+eq(say('всем привет', {}, { id: -100, type: 'group' }), '');                // в группе на обычный текст молчит
 
 console.log('OK: ' + checks + ' проверок');

@@ -10,6 +10,9 @@
  *    на «Отменено» — исполнителю.
  *  • /start в боте — сотрудник подписывается: бот находит его @username на листе «Команда».
  *
+ * Бот общий для команды и клиентов (@proactive_school_bot). Всем, кого нет на листе «Команда»,
+ * он отвечает приветствием школы (CLIENT_GREETING) и ничего не рассказывает о внутренней кухне.
+ *
  * Как установить — README.md рядом с этим файлом.
  */
 
@@ -29,6 +32,10 @@ const CONFIG = {
   TASK_TEXT_MAX: 120,       // обрезать текст задачи до стольких символов
   RESULT_TEXT_MAX: 110,     // обрезать критерий готовности
   IGNORE_WORDS: ['проверка', 'на встречах'],  // слова в «Исполнителе», которые не роли
+  // Ответ всем, кого нет на листе «Команда», — то есть клиентам.
+  CLIENT_GREETING: 'Здравствуйте! Это бот бизнес-школы Proactive.\n\n' +
+    'Скоро здесь можно будет узнать о наших курсах и тренингах, записаться и получить билет.',
+  CLIENT_CONTACT: '',       // например: 'Вопросы — @proactive_manager или +998 …'; пусто — строка не добавляется
 };
 
 const STATUS = { NEW: 'Не начато', WORK: 'В работе', DONE: 'Готово', RISK: 'Риск', CANCELLED: 'Отменено' };
@@ -45,13 +52,21 @@ const TEAM = {
   generic: 'Общее название (по продукту)', products: 'Продукты',
 };
 
-const HELP_TEXT = [
-  'Я бот задач бизнес-школы Proactive.',
+const STAFF_HELP = [
+  'Команды для сотрудников:',
   '',
-  '/start — подписаться на уведомления',
   '/my — мои задачи на этой неделе и просроченные',
+  '/team — подписаться заново (например, если сменили username)',
   '/help — эта подсказка',
 ].join('\n');
+
+// Меню команд: клиенты видят только эти две, у подписанных сотрудников — своё меню.
+const CLIENT_COMMANDS = [{ command: 'start', description: 'Начать' }, { command: 'help', description: 'Помощь' }];
+const STAFF_COMMANDS = [
+  { command: 'my', description: 'Мои задачи сейчас' },
+  { command: 'team', description: 'Подписаться заново' },
+  { command: 'help', description: 'Помощь' },
+];
 
 /* ───────────────────────────── Меню ───────────────────────────── */
 
@@ -92,6 +107,7 @@ function setup() {
   props.setProperty('SPREADSHEET_ID', ss.getId());
   const me = tgCall_('getMe', {});
   tgCall_('deleteWebhook', {});   // бот читает сообщения через getUpdates
+  tgCall_('setMyCommands', { commands: CLIENT_COMMANDS });
   ScriptApp.getProjectTriggers().forEach(t => {
     if (['dailyJob', 'pollUpdates', 'onStatusEdit'].indexOf(t.getHandlerFunction()) >= 0) ScriptApp.deleteTrigger(t);
   });
@@ -118,8 +134,11 @@ function menuSetTestChat() {
   const ui = SpreadsheetApp.getUi();
   const props = PropertiesService.getScriptProperties();
   const me = tgCall_('getMe', {});
+  // Бот публичный: без кода тестовым чатом мог бы стать любой, кто в эти 10 минут напишет /test.
+  const code = String(100000 + Math.floor(Math.random() * 900000));
+  props.setProperty('TEST_CODE', code);
   props.setProperty('TEST_ARM_UNTIL', String(Date.now() + 10 * 60 * 1000));
-  ui.alert('Тестовый режим', 'Откройте @' + me.username + ' в Telegram и отправьте ему /test.\nПотом нажмите ОК здесь.', ui.ButtonSet.OK);
+  ui.alert('Тестовый режим', 'Откройте @' + me.username + ' в Telegram и отправьте ему:\n\n/test ' + code + '\n\nПотом нажмите ОК здесь.', ui.ButtonSet.OK);
   pollUpdates();
   ui.alert(props.getProperty('TEST_CHAT_ID')
     ? 'Тестовый режим включён: все уведомления будут приходить только вам, с пометкой «для кого».'
@@ -248,35 +267,57 @@ function handleMessage_(m, team) {
   const parts = text.split(/\s+/);
   const cmd = parts[0].toLowerCase().replace(/@.*$/, '');
   const arg = parts.slice(1).join(' ');
-  if (cmd === '/start') return register_(m, team, arg);
+  if (m.chat.type !== 'private') {
+    if (cmd === '/start') registerGroup_(m, team, arg);
+    return;   // в общих чатах бот молчит, кроме подписки чата
+  }
+  const staff = findStaff_(m, team);
+  if (cmd === '/test') return armTest_(m, staff.length > 0, arg);
+  if (cmd === '/team') return registerStaff_(m, team);
+  if (!staff.length) return clientReply_(m, cmd === '/start');
+  if (cmd === '/start') return registerStaff_(m, team);
   if (cmd === '/my') return sendMy_(m);
-  if (cmd === '/test') return armTest_(m);
-  if (m.chat.type === 'private') reply_(m.chat.id, HELP_TEXT);
+  reply_(m.chat.id, STAFF_HELP);
 }
 
-function register_(m, team, arg) {
+/** Сотрудник — тот, чей chat_id или @username есть на листе «Команда». */
+function findStaff_(m, team) {
   const chatId = String(m.chat.id);
-  let matched;
-  if (m.chat.type !== 'private') {
-    // Общий чат (например, продавцов): /start Продавцы. Разрешено только ролям с «группа» в столбце username.
-    if (!arg) return reply_(chatId, 'Чтобы подписать этот чат на роль, отправьте: /start Название роли (как на листе «Команда»), например /start Продавцы');
-    matched = team.people.filter(p => norm_(p.role) === norm_(arg) && p.username === 'группа');
-    if (!matched.length) return reply_(chatId, 'Не могу подписать чат на «' + arg + '». На листе «Команда» у этой роли в столбце «Telegram @username» должно стоять слово «группа».');
-  } else {
-    const u = String((m.from && m.from.username) || '').toLowerCase();
-    if (!u) return reply_(chatId, 'В вашем Telegram не задано имя пользователя (Настройки → Имя пользователя). Задайте его и снова отправьте /start.\n\nИли передайте руководителю ваш chat_id: ' + chatId);
-    matched = team.people.filter(p => p.username === u);
-    if (!matched.length) {
-      logEvent_('регистрация', '@' + u, chatId, 'не найден на листе «Команда»');
-      return reply_(chatId, 'Не нашёл @' + u + ' на листе «Команда». Попросите руководителя вписать ваш username напротив вашей роли и снова отправьте /start.\n\nВаш chat_id: ' + chatId);
-    }
+  const u = String((m.from && m.from.username) || '').toLowerCase();
+  return team.people.filter(p => p.chatId === chatId || (u && p.username === u));
+}
+
+function clientReply_(m, isStart) {
+  if (isStart) {
+    const u = (m.from && m.from.username) ? '@' + m.from.username : String((m.from && m.from.first_name) || '');
+    logEvent_('клиент', u, m.chat.id, 'нажал /start');
   }
-  matched.forEach(p => {
-    team.sheet.getRange(p.row, team.idx.chatId + 1).setValue(chatId);
-    p.chatId = chatId;
-  });
+  reply_(m.chat.id, CONFIG.CLIENT_GREETING + (CONFIG.CLIENT_CONTACT ? '\n\n' + CONFIG.CLIENT_CONTACT : ''));
+}
+
+/** Общий чат (например, продавцов): /start Продавцы. Можно только ролям с «группа» в столбце username. */
+function registerGroup_(m, team, arg) {
+  const chatId = String(m.chat.id);
+  if (!arg) return reply_(chatId, 'Чтобы подписать этот чат на роль, отправьте: /start Название роли (как на листе «Команда»), например /start Продавцы');
+  const matched = team.people.filter(p => norm_(p.role) === norm_(arg) && p.username === 'группа');
+  if (!matched.length) return reply_(chatId, 'Не могу подписать чат на «' + arg + '». На листе «Команда» у этой роли в столбце «Telegram @username» должно стоять слово «группа».');
+  saveChat_(team, matched, chatId);
+  reply_(chatId, 'Готово, этот чат подписан: ' + matched.map(p => p.role).join(', ') + '.');
+}
+
+/** Подписка сотрудника по @username. Только для тех, кто есть на листе «Команда» (или явно прислал /team). */
+function registerStaff_(m, team) {
+  const chatId = String(m.chat.id);
+  const u = String((m.from && m.from.username) || '').toLowerCase();
+  const matched = team.people.filter(p => (u && p.username === u) || p.chatId === chatId);
+  if (!matched.length) {
+    logEvent_('регистрация', u ? '@' + u : '(без username)', chatId, 'нет на листе «Команда»');
+    if (!u) return reply_(chatId, 'В вашем Telegram не задано имя пользователя (Настройки → Имя пользователя). Задайте его и снова отправьте /team.\n\nИли передайте руководителю ваш chat_id: ' + chatId);
+    return reply_(chatId, 'Не нашёл @' + u + ' в списке команды. Попросите руководителя вписать ваш username напротив вашей роли и снова отправьте /team.');
+  }
+  saveChat_(team, matched, chatId);
+  try { tgCall_('setMyCommands', { commands: STAFF_COMMANDS, scope: { type: 'chat', chat_id: chatId } }); } catch (err) { /* меню — не главное */ }
   const roles = matched.map(p => p.role).join(', ');
-  logEvent_('регистрация', roles, chatId, 'подписан');
   reply_(chatId, 'Готово, вы подписаны: ' + roles + '.\n\n' +
     'Что я буду присылать:\n' +
     '• по понедельникам в ' + CONFIG.DAILY_HOUR + ':00 — задачи на неделю и просроченные;\n' +
@@ -285,25 +326,36 @@ function register_(m, team, arg) {
     '/my — мои задачи прямо сейчас');
 }
 
+function saveChat_(team, people, chatId) {
+  people.forEach(p => {
+    team.sheet.getRange(p.row, team.idx.chatId + 1).setValue(chatId);
+    p.chatId = chatId;
+  });
+  logEvent_('регистрация', people.map(p => p.role).join(', '), chatId, 'подписан');
+}
+
 function sendMy_(m) {
   const chatId = String(m.chat.id);
   const ctx = loadContext_();
   const mine = ctx.people.filter(p => p.chatId === chatId);
-  if (!mine.length) return reply_(chatId, 'Вы ещё не подписаны. Отправьте /start.');
+  if (!mine.length) return reply_(chatId, 'Вы ещё не подписаны. Отправьте /team.');
   const keys = new Set(mine.map(personKey_));
   const items = buildDigest_(ctx, todayStr_(), keys);
   if (!items.length) return reply_(chatId, 'На этой неделе задач по плану у вас нет, просроченных тоже нет 👍');
   items.forEach(it => sendLong_(chatId, it.text));
 }
 
-function armTest_(m) {
+function armTest_(m, isStaff, code) {
   const props = PropertiesService.getScriptProperties();
-  if (m.chat.type === 'private' && Date.now() < Number(props.getProperty('TEST_ARM_UNTIL') || 0)) {
+  const armed = Date.now() < Number(props.getProperty('TEST_ARM_UNTIL') || 0);
+  if (armed && code && code === props.getProperty('TEST_CODE')) {
     props.setProperty('TEST_CHAT_ID', String(m.chat.id));
     props.deleteProperty('TEST_ARM_UNTIL');
+    props.deleteProperty('TEST_CODE');
     return reply_(m.chat.id, 'Тестовый режим включён: все уведомления будут приходить сюда, с пометкой «для кого».');
   }
-  reply_(m.chat.id, 'Команда /test работает только сразу после «Бот → Тестовый режим» в таблице.');
+  if (!isStaff) return clientReply_(m, false);
+  reply_(m.chat.id, 'Команда /test работает только сразу после «Бот → Тестовый режим» в таблице, с кодом из окна: /test 123456.');
 }
 
 /* ─────────────────────── Сборка сообщений ─────────────────────── */
