@@ -86,6 +86,9 @@ function onOpen() {
     .addItem('Проверить, кого бот не узнаёт', 'menuCheckRoster')
     .addItem('Разослать дайджест сейчас', 'menuSendNow')
     .addSeparator()
+    .addItem('Подключить сервер (aiogram)', 'menuBridgeOn')   // Bridge.gs
+    .addItem('Отключить сервер', 'menuBridgeOff')
+    .addSeparator()
     .addItem('Выключить бота', 'teardown')
     .addToUi();
 }
@@ -109,22 +112,26 @@ function setup() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const props = PropertiesService.getScriptProperties();
   props.setProperty('SPREADSHEET_ID', ss.getId());
+  const bridged = props.getProperty('BRIDGE_MODE');   // входящие читает сервер на aiogram (Bridge.gs)
   const me = tgCall_('getMe', {});
-  tgCall_('deleteWebhook', {});   // бот читает сообщения через getUpdates
-  tgCall_('setMyCommands', { commands: CLIENT_COMMANDS });
+  if (!bridged) {
+    tgCall_('deleteWebhook', {});   // бот читает сообщения через getUpdates
+    tgCall_('setMyCommands', { commands: CLIENT_COMMANDS });
+  }
   ScriptApp.getProjectTriggers().forEach(t => {
     if (['dailyJob', 'pollUpdates', 'onStatusEdit'].indexOf(t.getHandlerFunction()) >= 0) ScriptApp.deleteTrigger(t);
   });
   ScriptApp.newTrigger('dailyJob').timeBased().everyDays(1).atHour(CONFIG.DAILY_HOUR)
     .inTimezone(ss.getSpreadsheetTimeZone()).create();
-  ScriptApp.newTrigger('pollUpdates').timeBased().everyMinutes(CONFIG.POLL_MINUTES).create();
+  if (!bridged) ScriptApp.newTrigger('pollUpdates').timeBased().everyMinutes(CONFIG.POLL_MINUTES).create();
   ScriptApp.newTrigger('onStatusEdit').forSpreadsheet(ss).onEdit().create();
   ensureLogSheet_();
   const test = props.getProperty('TEST_CHAT_ID');
   SpreadsheetApp.getUi().alert('Бот @' + me.username + ' включён.\n\n' +
     '• каждый день в ' + CONFIG.DAILY_HOUR + ':00 — напоминания, по понедельникам — дайджест;\n' +
     '• смена статуса на «Готово», «Риск», «Отменено» — сразу;\n' +
-    '• входящие (/start) бот читает раз в ' + CONFIG.POLL_MINUTES + ' минут.\n\n' +
+    (bridged ? '• входящие читает сервер (aiogram) и пересылает сюда команды сотрудников.\n\n' :
+      '• входящие (/start) бот читает раз в ' + CONFIG.POLL_MINUTES + ' минут.\n\n') +
     (test ? 'Сейчас включён ТЕСТОВЫЙ режим: всё приходит только вам.' :
       'Тестовый режим выключен: сообщения уходят сотрудникам, которые написали боту /start.'));
 }
@@ -254,6 +261,7 @@ function onStatusEdit(e) {
 
 /** Раз в POLL_MINUTES: читает входящие сообщения боту. */
 function pollUpdates() {
+  if (PropertiesService.getScriptProperties().getProperty('BRIDGE_MODE')) return;   // входящие читает сервер (Bridge.gs)
   const lock = LockService.getScriptLock();
   if (!lock.tryLock(10000)) return;
   try {
@@ -304,6 +312,7 @@ function findStaff_(m, team) {
 }
 
 function clientReply_(m, isStart) {
+  if (typeof BRIDGED_ !== 'undefined' && BRIDGED_) return 'client';   // клиентов обслуживает сервер (Bridge.gs)
   if (isStart) {
     const u = (m.from && m.from.username) ? '@' + m.from.username : String((m.from && m.from.first_name) || '');
     logEvent_('клиент', u, m.chat.id, 'нажал /start');
