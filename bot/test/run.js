@@ -82,6 +82,7 @@ byId('M-2').comment = 'Ждём исходники';
 const events = api.buildStatusEvents_(ctx, [byId('A-2'), byId('E-1'), byId('M-2')], props);
 eq(events.map(e => e.kind + '→' + e.person.role).sort().join(', '), 'на приёмку→Руководитель, риск→Маркетолог');
 ok(events.find(e => e.kind === 'риск').text.includes('Ждём исходники'), 'комментарий в сообщении о риске');
+eq(events.skipped.map(s => s.id + ': ' + s.reason).join(), 'E-1: утверждающий сам среди исполнителей — сообщать некому'); // видно в журнале, почему молчит
 eq(api.buildStatusEvents_(ctx, [byId('A-2')], props).length, 0);         // тот же статус второй раз не шлём
 
 // Задачи на листах отделов: бот читает каждый лист с задачами, общий собранный лист пропускает
@@ -91,7 +92,8 @@ const fakeSheet = (name, gid, rows) => ({
 });
 const H = ['ID', 'Задача', 'Исполнитель (R)', 'Статус', 'Начало', 'Срок', 'Дата факт', 'Комментарий', 'Отдел', 'Продукт'];
 const day = s => vm.runInContext('new Date("' + s + 'T12:00:00Z")', sandbox);   // Date из песочницы, иначе instanceof не сработает
-const office = fakeSheet('Офис', 101, [H, ['A-1', 'Задача A-1', 'Маркетолог', 'Готово', day('2026-10-19'), day('2026-10-21'), '', '', 'Офис', 'Школа']]);
+const office = fakeSheet('Офис', 101, [H, ['A-1', 'Задача A-1', 'Маркетолог', 'Готово', day('2026-10-19'), day('2026-10-21'), '', '', 'Офис', 'Школа'],
+  ['A-9', 'Своя задача руководителя', 'Анвар', 'Готово', day('2026-10-19'), day('2026-10-21'), '', '', 'Офис', 'Школа']]);
 const mkt = fakeSheet('Маркетинг', 103, [H, ['M-1', 'Задача M-1', 'Анвар', 'Не начато', day('2026-10-19'), day('2026-10-20'), '', '', 'Маркетинг', 'BMC']]);
 const view = fakeSheet('Все задачи', 100, [H, ['A-1', 'копия', 'Маркетолог', 'Готово', day('2026-10-19'), day('2026-10-21'), '', '', 'Офис', 'Школа']]);
 const teamSh = fakeSheet('Команда', 300, [['Роль (как в задачах)', 'Имя', 'Telegram @username', 'Telegram chat_id'], ['Маркетолог', 'Лола', '', ''], ['Руководитель', 'Анвар', '', '']]);
@@ -104,12 +106,16 @@ const fakeSS = {
 sandbox.ss_ = () => fakeSS;
 sandbox.Utilities = { formatDate: dt => dt.toISOString().slice(0, 10) };
 const live = api.loadContext_();
-eq(live.tasks.map(t => t.sheet + ':' + t.id + ':' + t.row).join(' '), 'Офис:A-1:2 Маркетинг:M-1:2');   // «Сводка» и «Все задачи» пропущены
-eq(live.tasks[1].start + '…' + live.tasks[1].due, '2026-10-19…2026-10-20');
-ok(live.rOf(live.tasks[0])[0].role === 'Маркетолог' && live.rOf(live.tasks[1])[0].role === 'Руководитель', 'одинаковые номера строк на разных листах не путаются');
-let outbox = [];
+eq(live.tasks.map(t => t.sheet + ':' + t.id + ':' + t.row).join(' '), 'Офис:A-1:2 Офис:A-9:3 Маркетинг:M-1:2');   // «Сводка» и «Все задачи» пропущены
+eq(live.tasks[2].start + '…' + live.tasks[2].due, '2026-10-19…2026-10-20');
+ok(live.rOf(live.tasks[0])[0].role === 'Маркетолог' && live.rOf(live.tasks[2])[0].role === 'Руководитель', 'одинаковые номера строк на разных листах не путаются');
+let outbox = [], journal = [];
 sandbox.sendOutbox_ = items => { outbox = items; return []; };
-const editAt = sh => ({ range: { getSheet: () => sh, getRow: () => 2, getLastRow: () => 2, getColumn: () => 4, getLastColumn: () => 4 } });
+sandbox.appendLog_ = rows => { journal = journal.concat(rows); };
+const editAt = (sh, row = 2) => ({ range: { getSheet: () => sh, getRow: () => row, getLastRow: () => row, getColumn: () => 4, getLastColumn: () => 4 } });
+api.onStatusEdit(editAt(office, 3));
+eq(outbox.length, 0);
+eq(journal.map(r => r[4] + ' ' + r[5]).join(), 'A-9 не отправлено: утверждающий сам среди исполнителей — сообщать некому');
 api.onStatusEdit(editAt(view));
 eq(outbox.length, 0);                                                        // правка «Все задачи» не считается
 api.onStatusEdit(editAt(office));

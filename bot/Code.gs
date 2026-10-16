@@ -254,6 +254,9 @@ function onStatusEdit(e) {
     const edited = ctx.tasks.filter(t => t.gid === gid && t.row >= r1 && t.row <= r2);
     const items = buildStatusEvents_(ctx, edited, PropertiesService.getScriptProperties());
     if (items.length) sendOutbox_(items);
+    if (items.skipped.length) {
+      appendLog_(items.skipped.map(s => [new Date(), s.kind, s.who, '', s.id, 'не отправлено: ' + s.reason, '']));
+    }
   } catch (err) {
     logEvent_('ошибка', 'onStatusEdit', '', String((err && err.message) || err));
   }
@@ -515,6 +518,7 @@ function buildReminders_(ctx, today) {
 /** Сообщения о смене статуса. props — где помнить последний отправленный статус задачи. */
 function buildStatusEvents_(ctx, tasks, props) {
   const items = [];
+  items.skipped = [];   // смена статуса, о которой некому сообщить, — с причиной для «Журнала бота»
   tasks.forEach(t => {
     const key = 'ST_' + t.id;
     if (props) {
@@ -540,6 +544,13 @@ function buildStatusEvents_(ctx, tasks, props) {
     } else if (t.status === STATUS.CANCELLED) {
       targets = rs; kind = 'снята';
       text = head('🚫', 'Задача снята') + '\n\n' + (t.comment ? 'Причина: ' + esc_(t.comment) : 'Причина не указана.');
+    }
+    if (kind && !targets.length) {
+      const allA = ctx.aOf(t);
+      const reason = kind === 'снята' ? 'исполнитель «' + t.r + '» не найден на листе «Команда»'
+        : !allA.length ? 'утверждающий не найден на листе «Команда»'
+          : 'утверждающий сам среди исполнителей — сообщать некому';
+      items.skipped.push({ kind: kind, id: t.id, who: (kind === 'снята' ? t.r : allA.map(p => p.role).join(', ') || '—'), reason: reason });
     }
     const seen = new Set();
     targets.forEach(p => {
