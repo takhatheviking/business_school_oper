@@ -118,8 +118,10 @@ ok(!/555/.test(say('/team', client)), 'скрытая /team не выдаёт ch
 
 store.TEST_ARM_UNTIL = String(Date.now() + 60000);
 store.TEST_CODE = '424242';
-eq(say('/test 111111', client), greeting);                                 // чужой код — не тестовый чат
+ok(say('/test 111111', client).includes('Код не подошёл'), 'неверный код — подсказка, а не приветствие');
+ok(say('/test', client).includes('Добавьте код'), '/test без кода, пока окно открыто');
 eq(store.TEST_CHAT_ID, undefined);
+eq(store.TEST_TRIES, '1');                                                // промахи считаются, /test без кода — нет
 
 out = say('/start', { username: 'Lola_M' }, { id: 777, type: 'private' });
 ok(out.includes('вы подписаны: Маркетолог'), 'сотрудник подписывается по username');
@@ -128,7 +130,14 @@ ok(calls.some(c => c.method === 'setMyCommands' && c.payload.scope.chat_id === '
 ok(say('привет', {}, { id: 777, type: 'private' }).includes('/my'), 'подписанного узнаёт по chat_id');
 ok(say('/test 424242', { username: 'lola_m' }, { id: 777, type: 'private' }).includes('Тестовый режим включён'), 'тест с верным кодом');
 eq(store.TEST_CHAT_ID, '777');
-eq(store.TEST_CODE, undefined);                                           // код одноразовый
+eq([store.TEST_CODE, store.TEST_TRIES, store.TEST_OK].join(), ',,424242'); // код одноразовый, таблица видит, что он принят
+
+store.TEST_ARM_UNTIL = String(Date.now() + 60000);
+store.TEST_CODE = '515151';
+const guesses = ['000001', '000002', '000003', '000004', '000005'].map(c => say('/test ' + c, client));
+ok(guesses[4].includes('Слишком много'), 'после 5 промахов окно закрывается');
+eq(say('/test 515151', client), greeting);                                 // подобрать код уже нельзя
+eq(store.TEST_CHAT_ID, '777');
 
 ok(say('/start Продавцы', {}, { id: -100, type: 'group' }).includes('чат подписан: Продавцы'), 'общий чат роли');
 ok(say('/start Маркетолог', {}, { id: -100, type: 'group' }).includes('Не могу подписать'), 'чат — только ролям «группа»');

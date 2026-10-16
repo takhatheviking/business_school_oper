@@ -36,6 +36,8 @@ const CONFIG = {
   CLIENT_GREETING: 'Здравствуйте! Это бот бизнес-школы Proactive.\n\n' +
     'Скоро здесь можно будет узнать о наших курсах и тренингах, записаться и получить билет.',
   CLIENT_CONTACT: '',       // например: 'Вопросы — @proactive_manager или +998 …'; пусто — строка не добавляется
+  TEST_CODE_MINUTES: 10,    // сколько действует код для /test
+  TEST_MAX_TRIES: 5,        // после стольких неверных кодов окно закрывается, чтобы код нельзя было подобрать
 };
 
 const STATUS = { NEW: 'Не начато', WORK: 'В работе', DONE: 'Готово', RISK: 'Риск', CANCELLED: 'Отменено' };
@@ -134,15 +136,26 @@ function menuSetTestChat() {
   const ui = SpreadsheetApp.getUi();
   const props = PropertiesService.getScriptProperties();
   const me = tgCall_('getMe', {});
-  // Бот публичный: без кода тестовым чатом мог бы стать любой, кто в эти 10 минут напишет /test.
-  const code = String(100000 + Math.floor(Math.random() * 900000));
-  props.setProperty('TEST_CODE', code);
-  props.setProperty('TEST_ARM_UNTIL', String(Date.now() + 10 * 60 * 1000));
-  ui.alert('Тестовый режим', 'Откройте @' + me.username + ' в Telegram и отправьте ему:\n\n/test ' + code + '\n\nПотом нажмите ОК здесь.', ui.ButtonSet.OK);
-  pollUpdates();
-  ui.alert(props.getProperty('TEST_CHAT_ID')
+  // Бот публичный: без кода тестовым чатом мог бы стать любой, кто в эти минуты напишет /test.
+  // Пока код действует, повторное открытие окна показывает тот же код, а не обесценивает уже отправленный.
+  let code = props.getProperty('TEST_CODE');
+  if (!code || Date.now() >= Number(props.getProperty('TEST_ARM_UNTIL') || 0)) {
+    code = String(100000 + Math.floor(Math.random() * 900000));
+    props.setProperty('TEST_CODE', code);
+    props.deleteProperty('TEST_TRIES');
+  }
+  props.setProperty('TEST_ARM_UNTIL', String(Date.now() + CONFIG.TEST_CODE_MINUTES * 60 * 1000));
+  ui.alert('Тестовый режим', 'Откройте @' + me.username + ' в Telegram и отправьте ему:\n\n/test ' + code +
+    '\n\nОтправили? Нажмите ОК — бот прочитает сообщение и ответит.', ui.ButtonSet.OK);
+  // Сообщение может прийти с задержкой: проверяем несколько раз.
+  for (let i = 0; i < 4 && props.getProperty('TEST_OK') !== code; i++) {
+    if (i) Utilities.sleep(3000);
+    pollUpdates();
+  }
+  ui.alert(props.getProperty('TEST_OK') === code
     ? 'Тестовый режим включён: все уведомления будут приходить только вам, с пометкой «для кого».'
-    : 'Сообщение /test не дошло. Проверьте, что отправили его этому боту, и повторите.');
+    : 'Бот пока не получил /test ' + code + '. Отправьте его боту и снова откройте «Бот → Тестовый режим»: код останется тем же ещё ' +
+      CONFIG.TEST_CODE_MINUTES + ' минут.');
 }
 
 function menuClearTestChat() {
@@ -347,15 +360,26 @@ function sendMy_(m) {
 
 function armTest_(m, isStaff, code) {
   const props = PropertiesService.getScriptProperties();
-  const armed = Date.now() < Number(props.getProperty('TEST_ARM_UNTIL') || 0);
-  if (armed && code && code === props.getProperty('TEST_CODE')) {
+  const expected = props.getProperty('TEST_CODE');
+  const disarm = () => ['TEST_ARM_UNTIL', 'TEST_CODE', 'TEST_TRIES'].forEach(k => props.deleteProperty(k));
+  if (!expected || Date.now() >= Number(props.getProperty('TEST_ARM_UNTIL') || 0)) {
+    if (!isStaff) return clientReply_(m, false);
+    return reply_(m.chat.id, 'Команда /test работает только сразу после «Бот → Тестовый режим» в таблице, с кодом из окна: /test 123456.');
+  }
+  if (code === expected) {
     props.setProperty('TEST_CHAT_ID', String(m.chat.id));
-    props.deleteProperty('TEST_ARM_UNTIL');
-    props.deleteProperty('TEST_CODE');
+    props.setProperty('TEST_OK', expected);
+    disarm();
     return reply_(m.chat.id, 'Тестовый режим включён: все уведомления будут приходить сюда, с пометкой «для кого».');
   }
-  if (!isStaff) return clientReply_(m, false);
-  reply_(m.chat.id, 'Команда /test работает только сразу после «Бот → Тестовый режим» в таблице, с кодом из окна: /test 123456.');
+  if (!code) return reply_(m.chat.id, 'Добавьте код из окна в таблице, например: /test 123456');
+  const tries = Number(props.getProperty('TEST_TRIES') || 0) + 1;
+  if (tries >= CONFIG.TEST_MAX_TRIES) {
+    disarm();
+    return reply_(m.chat.id, 'Слишком много неверных кодов. Откройте «Бот → Тестовый режим» в таблице ещё раз.');
+  }
+  props.setProperty('TEST_TRIES', String(tries));
+  reply_(m.chat.id, 'Код не подошёл. Отправьте код из последнего окна в таблице: /test 123456');
 }
 
 /* ─────────────────────── Сборка сообщений ─────────────────────── */
