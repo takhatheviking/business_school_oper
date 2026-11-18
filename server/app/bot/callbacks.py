@@ -72,6 +72,13 @@ class TasksCb(CallbackData, prefix="tl"):
     page: int = 0  # list page, or the department's number on the summary
 
 
+class ChannelCb(CallbackData, prefix="cn"):
+    # home | refresh | list | post | preview | pub | pub_go | skip | unskip | unfile | done | attach | sheet | use
+    action: str
+    no: str = ""  # the post number; for "use" the channel id
+    page: int = 0  # the list page to come back to
+
+
 class AdminCb(CallbackData, prefix="ad"):
     action: str
     event_id: int = 0

@@ -69,5 +69,9 @@ class CourseEditSG(StatesGroup):
     poster = State()
 
 
+class ChannelSG(StatesGroup):
+    link = State()  # the content plan spreadsheet
+
+
 class TaskSG(StatesGroup):
     reason = State()  # risk, return or cancel: why

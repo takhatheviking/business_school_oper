@@ -18,6 +18,7 @@ from app.config import Settings
 from app.db.models import Event, EventStatus, Notification, Ticket, TicketStatus, User
 from app.formatting import esc, fmt_dt
 from app.i18n import Translator, t
+from app.services import autopost
 from app.services.booking import expire_due_orders, find_duplicate_orders, now_utc, pending_reviews
 from app.services.gsheets import describe_error, sheets
 from app.services.task_events import announce
@@ -182,7 +183,12 @@ async def sync_tasks(bot: Bot, session: AsyncSession, settings: Settings) -> Non
         await announce(bot, session, settings, board, change)
 
 
-JOBS = (expire_holds, retry_ticket_delivery, retry_review_posts, alert_stale_reviews, send_reminders, sync_sheets, sync_tasks)
+async def run_autopost(bot: Bot, session: AsyncSession, settings: Settings) -> None:
+    """The content plan: posts to the channel, reminders about missing files (app/services/autopost.py)."""
+    await autopost.tick(bot, session, settings)
+
+
+JOBS = (expire_holds, retry_ticket_delivery, retry_review_posts, alert_stale_reviews, send_reminders, sync_sheets, sync_tasks, run_autopost)
 
 
 async def run_worker(bot: Bot, session_factory: async_sessionmaker[AsyncSession], settings: Settings) -> None:

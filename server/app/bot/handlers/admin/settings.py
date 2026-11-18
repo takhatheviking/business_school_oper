@@ -28,7 +28,8 @@ from app.services.notify import alert_admins, safe_send
 
 router = Router(name="admin_settings")
 SKIP = {"-", "—"}
-REQUEST_STAFF, REQUEST_ADMIN = 1, 2
+REQUEST_STAFF, REQUEST_ADMIN, REQUEST_CONTENT = 1, 2, 3
+ROLE_ICON = {UserRole.ADMIN: "👑", UserRole.STAFF: "🎫", UserRole.CONTENT: "📣"}
 
 
 def is_super(user: User, settings: Settings) -> bool:
@@ -168,16 +169,17 @@ async def cb_set_modchat(cb: CallbackQuery, callback_data: AdminCb, user: User, 
 # --- Staff ----------------------------------------------------------------------------
 
 async def staff_view(session: AsyncSession, tr: Translator, settings: Settings, me: User) -> tuple[str, InlineKeyboardMarkup]:
-    rows = (await session.execute(select(User).where(User.role.in_((UserRole.ADMIN, UserRole.STAFF))).order_by(User.role, User.id))).scalars()
+    rows = (await session.execute(select(User).where(User.role.in_(tuple(ROLE_ICON))).order_by(User.role, User.id))).scalars()
     b = InlineKeyboardBuilder()
     lines = [tr("adm_staff_title")]
     for u in rows:
         label = f"{u.full_name}" + (f" (@{u.username})" if u.username else "")
-        lines.append(f"{'👑' if u.role == UserRole.ADMIN else '🎫'} {esc(label)}")
+        lines.append(f"{ROLE_ICON[u.role]} {esc(label)}")
         removable = u.id != me.id and u.tg_id not in settings.admin_ids and (u.role != UserRole.ADMIN or is_super(me, settings))
         if removable:
             b.button(text=f"✖️ {label}"[:64], callback_data=AdminCb(action="staff_rm", item_id=u.id))
     b.button(text=tr("adm_btn_add_staff"), callback_data=AdminCb(action="staff_add", value="staff"))
+    b.button(text=tr("adm_btn_add_content"), callback_data=AdminCb(action="staff_add", value="content"))
     if is_super(me, settings):
         b.button(text=tr("adm_btn_add_admin"), callback_data=AdminCb(action="staff_add", value="admin"))
     b.adjust(1)
@@ -209,7 +211,7 @@ async def cb_staff_add(cb: CallbackQuery, callback_data: AdminCb, user: User, tr
     if callback_data.value == "admin" and not is_super(user, settings):
         await cb.answer(tr("err_super_only"), show_alert=True)
         return
-    request_id = REQUEST_ADMIN if callback_data.value == "admin" else REQUEST_STAFF
+    request_id = {"admin": REQUEST_ADMIN, "content": REQUEST_CONTENT}.get(callback_data.value, REQUEST_STAFF)
     kb = ReplyKeyboardMarkup(
         keyboard=[
             [KeyboardButton(text=tr("adm_btn_pick_user"), request_users=KeyboardButtonRequestUsers(request_id=request_id, user_is_bot=False, max_quantity=1, request_name=True, request_username=True))],
@@ -226,7 +228,7 @@ async def cb_staff_add(cb: CallbackQuery, callback_data: AdminCb, user: User, tr
 @router.message(StaffSG.pick, F.users_shared)
 async def on_staff_picked(message: Message, user: User, tr: Translator, session: AsyncSession, settings: Settings, state: FSMContext) -> None:
     await state.clear()
-    role = UserRole.ADMIN if message.users_shared.request_id == REQUEST_ADMIN else UserRole.STAFF
+    role = {REQUEST_ADMIN: UserRole.ADMIN, REQUEST_CONTENT: UserRole.CONTENT}.get(message.users_shared.request_id, UserRole.STAFF)
     if role == UserRole.ADMIN and not is_super(user, settings):
         return
     for shared in message.users_shared.users:

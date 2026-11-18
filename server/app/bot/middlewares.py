@@ -184,3 +184,4 @@ class RoleFilter(Filter):
 
 IsAdmin = RoleFilter(UserRole.ADMIN)
 IsStaff = RoleFilter(UserRole.ADMIN, UserRole.STAFF)
+IsContent = RoleFilter(UserRole.ADMIN, UserRole.CONTENT)

@@ -17,9 +17,12 @@ PLACEHOLDER = re.compile(r"\{([a-z_]+)\}")
 KEY_PREFIXES = (
     "adm_", "ask_", "booking_", "btn_", "ci_", "cmd_", "edit_", "err_", "event_", "field_", "mod_", "my_",
     "form_", "xls_", "gs_", "issue_", "order_", "pay_", "payment_", "price_", "receipt_", "reject_", "reminder_", "ticket_", "tt_", "wiz_",
-    "course_", "courses_", "lead_", "sales_", "bridge_", "tk_", "ev_",
+    "course_", "courses_", "lead_", "sales_", "bridge_", "tk_", "ev_", "ch_",
 )
-MENU_KEYS = ("btn_tasks", "btn_courses", "btn_events", "btn_lead", "btn_my", "btn_lang", "btn_help", "btn_admin", "btn_checkin", "btn_cancel")
+MENU_KEYS = (
+    "btn_tasks", "btn_courses", "btn_events", "btn_lead", "btn_my", "btn_lang", "btn_help", "btn_admin", "btn_checkin", "btn_cancel",
+    "btn_channel",
+)
 
 
 def catalog(lang: str) -> dict[str, str]:
@@ -40,6 +43,9 @@ def dynamic_keys() -> set[str]:
     keys |= {s.label_key for s in course_form.sections()}
     keys |= {f"tk_btn_{a}" for a in ("work", "done", "risk", "accept", "return", "cancel")} | {f"tk_ask_{a}" for a in ("risk", "return", "cancel")}
     keys |= {f"ev_{k}" for k in ("started", "done_a", "done_i", "risk", "cancelled", "accepted", "returned")}
+    keys |= {f"ch_alert_{k}" for k in ("no_channel", "no_file", "empty", "failed", "unsure")}
+    keys |= {f"ch_why_{k}" for k in ("posted", "busy", "no_channel", "no_file", "empty", "manual")}
+    keys |= {f"ch_done_{k}" for k in ("skip", "unskip", "unfile", "done")}
     return keys
 
 

@@ -6,7 +6,7 @@ from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.types import BotCommand, BotCommandScopeDefault
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from app.bot.handlers import booking, checkin, common, courses, events, fallback, leads, moderation, my, sales, staff
+from app.bot.handlers import booking, channel, checkin, common, courses, events, fallback, leads, moderation, my, sales, staff
 from app.bot.handlers.admin import build_router as build_admin_router
 from app.bot.middlewares import (
     BridgeMiddleware,
@@ -21,7 +21,10 @@ from app.i18n import LANGS, all_variants, t
 from app.services.bridge import Bridge
 from app.services.tasks import board
 
-MENU_KEYS = ("btn_tasks", "btn_courses", "btn_events", "btn_lead", "btn_my", "btn_lang", "btn_help", "btn_admin", "btn_checkin", "btn_cancel")
+MENU_KEYS = (
+    "btn_tasks", "btn_courses", "btn_events", "btn_lead", "btn_my", "btn_lang", "btn_help", "btn_admin", "btn_checkin", "btn_cancel",
+    "btn_channel",
+)
 
 
 def create_bot(settings: Settings) -> Bot:
@@ -59,6 +62,7 @@ def create_dispatcher(settings: Settings, session_factory: async_sessionmaker[As
         moderation.router,
         sales.router,
         staff.router,
+        channel.router,  # before booking: a banner or PDF from the content team is not a receipt
         courses.router,
         leads.router,
         events.router,

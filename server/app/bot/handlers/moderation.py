@@ -12,7 +12,7 @@ from aiogram.types import CallbackQuery, ChatMemberUpdated, InlineKeyboardMarkup
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.bot.callbacks import AdminCb, ModCb
+from app.bot.callbacks import AdminCb, ChannelCb, ModCb
 from app.bot.keyboards import REJECT_REASONS, pending_order_kb, refund_kb, reject_reasons_kb, review_kb
 from app.config import Settings
 from app.db.models import OrderStatus, Payment, User, UserRole
@@ -163,6 +163,8 @@ async def on_added_to_chat(event: ChatMemberUpdated, session: AsyncSession, sett
         return
     tr = Translator(user.lang or settings.default_lang)
     b = InlineKeyboardBuilder()
+    if event.chat.type == "channel":  # the channel the content plan goes to (handlers/channel.py)
+        b.button(text=tr("ch_btn_use_channel"), callback_data=ChannelCb(action="use", no=str(event.chat.id)))
     b.button(text=tr("adm_modchat_use"), callback_data=AdminCb(action="set_modchat", value=str(event.chat.id)))
     b.button(text=tr("adm_leadchat_use"), callback_data=AdminCb(action="set_leadchat", value=str(event.chat.id)))
     b.adjust(1)

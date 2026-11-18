@@ -57,6 +57,12 @@ class Settings(BaseSettings):
     tasks_see_all: Annotated[list[str], NoDecode] = Field(default_factory=list)
     tasks_poll_seconds: int = 60
 
+    # Autoposting of the launch content plan to a Telegram channel (docs/CHANNEL.md). Both are
+    # fallbacks: admins set the plan sheet and the channel from the bot («📣 Канал»).
+    content_sheet_id: str | None = None
+    content_channel_id: int | None = None
+    content_poll_seconds: int = 60
+
     @field_validator("tasks_see_all", mode="before")
     @classmethod
     def _split_roles(cls, v):

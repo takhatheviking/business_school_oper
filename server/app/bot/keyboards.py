@@ -29,6 +29,8 @@ def main_menu(tr: Translator, user: User | None) -> ReplyKeyboardMarkup:
         if user.role == UserRole.ADMIN:
             staff_row.insert(0, KeyboardButton(text=tr("btn_admin")))
         rows.append(staff_row)
+    if user is not None and user.role in (UserRole.ADMIN, UserRole.CONTENT):
+        rows.append([KeyboardButton(text=tr("btn_channel"))])
     return ReplyKeyboardMarkup(keyboard=rows, resize_keyboard=True)
 
 

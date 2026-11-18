@@ -48,6 +48,7 @@ Redis — хранилище FSM (шаги диалогов переживают
 | Курсы и заявки | `app/services/courses.py`, `course_form.py`, `lead_cards.py` | каталог, форма курса, заявки и их статусы, карточка для продавцов |
 | Мост | `app/services/bridge.py`, `BridgeMiddleware` в `app/bot/middlewares.py` | список сотрудников и пересылка их команд в Apps Script, сигнал жизни |
 | Задачи сотрудников | `app/services/status_sheet.py`, `team.py`, `tasks.py`, `task_events.py`, `app/bot/handlers/staff.py` | чтение и запись статусной таблицы, сопоставление людей (перенос из Apps Script), права, приёмка, сверка статусов, события RACI |
+| Автопостинг в канал | `app/services/content_plan.py`, `autopost.py`, `app/bot/handlers/channel.py` | чтение контент-плана из Google Таблицы, файлы от контент-команды, публикация по расписанию, напоминания ([CHANNEL.md](CHANNEL.md)) |
 
 ## База данных
 
@@ -71,6 +72,7 @@ app_settings                        (карта для оплаты, чаты м
 | `courses` | `title`, `description`, `schedule` (+ переводы в `i18n`), `starts_on`, `price_tiyin` (NULL — по запросу), `poster_file_id`, `status` draft/published | каталог |
 | `leads` | `user_id`, `course_id` (NULL — консультация), `name`, `phone`, `comment`, `lang`, `source`, `status` new/in_work/enrolled/rejected, `manager_*`, `card_chat_id/message_id` | заявки |
 | `task_states` | `task_id` (ID задачи из таблицы), `status` (последний увиденный), `accepted_at/by`, `c_notified` | сверка статусов с таблицей и приёмка утверждающим; сами задачи живут в таблице |
+| `channel_posts` | `sheet_id` + `post_no` (unique), `file_id/kind/name/by/at`, `skipped`, `claimed_at`, `posted_at/by`, `channel_id`, `message_id`, `sheet_marked`, `error`, `notified` | что бот знает о посте контент-плана сверх таблицы: файл, публикация, отправленные напоминания; `claimed_at` не даёт опубликовать пост дважды |
 
 Деньги хранятся целыми числами в тийинах (1 сум = 100 тийин) — в том же формате, что ждёт Payme.
 
@@ -137,6 +139,7 @@ pending ──чек──▶ under_review ──одобрен──▶ paid �
 | суперадмин | `ADMIN_IDS` в `.env` | всё, включая карту для оплаты, чат модерации и назначение админов |
 | admin | «👥 Команда → Добавить админа» (только суперадмин) | ивенты, модерация чеков (в т.ч. из лички), возвраты, контролёры, проверка на входе |
 | staff (контролёр) | «👥 Команда → Добавить контролёра» | только проверка билетов на входе |
+| content (контент-менеджер) | «👥 Команда → Добавить контент-менеджера» | раздел «📣 Канал»: присылать баннеры и PDF к постам, публиковать сейчас, снимать с расписания; получает напоминания о файлах |
 | модератор | быть администратором чата модерации | одобрять и отклонять чеки в этом чате, кроме своих собственных заказов |
 
 Если убрать человека из `ADMIN_IDS`, роль admin в базе у него останется. Снимите её через «👥 Команда».

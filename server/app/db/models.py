@@ -38,6 +38,7 @@ class Base(DeclarativeBase):
 class UserRole(StrEnum):
     USER = "user"
     STAFF = "staff"  # can check tickets in at the entrance
+    CONTENT = "content"  # sends banners and PDFs for the channel's content plan (docs/CHANNEL.md)
     ADMIN = "admin"  # manages events, settings and staff
 
 
@@ -392,6 +393,37 @@ class TaskState(Base):
     accepted_by_tg_id: Mapped[int | None] = mapped_column(BigInteger)
     # C hears about the start once, even if the task goes back and forth.
     c_notified: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("false"))
+
+
+class ChannelPost(TimestampMixin, Base):
+    """What the bot knows about a post of the content plan beyond the spreadsheet: the file
+    to publish with it, whether and where it went out, which reminders were sent.
+    A post is a row of the plan sheet, identified by the sheet and the post number («№»)."""
+
+    __tablename__ = "channel_posts"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    sheet_id: Mapped[str] = mapped_column(String(64))
+    post_no: Mapped[str] = mapped_column(String(16))
+    file_id: Mapped[str | None] = mapped_column(String(255))
+    file_kind: Mapped[str | None] = mapped_column(String(16))  # photo | document
+    file_name: Mapped[str | None] = mapped_column(String(255))
+    file_by: Mapped[str | None] = mapped_column(String(128))
+    file_at: Mapped[datetime | None]
+    # An editor said "do not publish": the schedule passes the post by.
+    skipped: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("false"))
+    # Committed right before sending, so the worker and a "Publish now" press never both post.
+    claimed_at: Mapped[datetime | None]
+    posted_at: Mapped[datetime | None]
+    posted_by: Mapped[str | None] = mapped_column(String(128))  # who pressed "Publish now"; NULL: the schedule
+    channel_id: Mapped[int | None] = mapped_column(BigInteger)  # NULL with posted_at: published by hand
+    message_id: Mapped[int | None] = mapped_column(BigInteger)
+    sheet_marked: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("false"))  # «Joylandi» written
+    error: Mapped[str | None] = mapped_column(Text)
+    # One-off messages already sent about this post: "3h", "1h", "due", "late", "manual".
+    notified: Mapped[list[str]] = mapped_column(JSONB, default=list, server_default=text("'[]'::jsonb"))
+
+    __table_args__ = (UniqueConstraint("sheet_id", "post_no", name="uq_channel_posts_sheet_id_post_no"),)
 
 
 class Notification(Base):

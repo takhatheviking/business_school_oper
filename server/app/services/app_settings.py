@@ -11,6 +11,8 @@ from app.db.models import AppSetting
 PAYMENT_CARD = "payment_card"
 MODERATION_CHAT = "moderation_chat"
 LEADS_CHAT = "leads_chat"
+CONTENT_CHANNEL = "content_channel"  # the channel the content plan is posted to
+CONTENT_SHEET = "content_sheet"  # the content plan spreadsheet
 
 
 @dataclass
@@ -64,3 +66,35 @@ async def get_leads_chat(session: AsyncSession, settings: Settings) -> tuple[int
 
 async def set_leads_chat(session: AsyncSession, chat_id: int, title: str | None) -> None:
     await set_value(session, LEADS_CHAT, {"chat_id": chat_id, "title": title})
+
+
+@dataclass
+class ChannelInfo:
+    chat_id: int
+    title: str | None = None
+    username: str | None = None
+
+    def post_url(self, message_id: int) -> str:
+        if self.username:
+            return f"https://t.me/{self.username}/{message_id}"
+        return f"https://t.me/c/{str(self.chat_id).removeprefix('-100')}/{message_id}"
+
+
+async def get_content_channel(session: AsyncSession, settings: Settings) -> ChannelInfo | None:
+    value = await get_value(session, CONTENT_CHANNEL)
+    if value and value.get("chat_id"):
+        return ChannelInfo(int(value["chat_id"]), value.get("title"), value.get("username"))
+    return ChannelInfo(settings.content_channel_id) if settings.content_channel_id else None
+
+
+async def set_content_channel(session: AsyncSession, channel: ChannelInfo) -> None:
+    await set_value(session, CONTENT_CHANNEL, {"chat_id": channel.chat_id, "title": channel.title, "username": channel.username})
+
+
+async def get_content_sheet(session: AsyncSession, settings: Settings) -> str | None:
+    value = await get_value(session, CONTENT_SHEET)
+    return (value or {}).get("id") or settings.content_sheet_id
+
+
+async def set_content_sheet(session: AsyncSession, sheet_id: str) -> None:
+    await set_value(session, CONTENT_SHEET, {"id": sheet_id})

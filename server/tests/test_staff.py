@@ -12,7 +12,7 @@ from sqlalchemy import select
 from app.config import Settings
 from app.db.models import TaskState
 from app.services.status_sheet import COL, SERIAL_EPOCH, TEAM_COL, SheetValues, header_index, parse_tasks
-from app.services.tasks import board, today_in
+from app.services.tasks import board, today_in, week_bounds
 from tests.test_e2e_flow import Harness, h  # noqa: F401 - the fixture is used by name
 
 BOBUR, LOLA, DILNOZA, TEMUR, CLIENT = 601, 602, 603, 604, 650
@@ -220,7 +220,9 @@ async def test_summary_for_heads(h: Harness, sheet: FakeBackend):
     assert "tl:summary:0" in buttons(h, BOBUR)
     await h.press(BOBUR, "tl:summary:0")
     summary = edits(h)[-1]
-    assert "<b>Маркетинг</b>: 2 (1) · ❗ 1 · ⚠️ 0 · 📥 1" in summary and "Маркетолог · Лола — " in summary
+    week_start, week_end = week_bounds(TODAY)  # how many of the three dues fall in this week depends on the weekday
+    in_week = sum(week_start <= d <= week_end for d in (TODAY + timedelta(days=3), TODAY - timedelta(days=2), TODAY))
+    assert f"<b>Маркетинг</b>: {in_week} (1) · ❗ 1 · ⚠️ 0 · 📥 1" in summary and "Маркетолог · Лола — " in summary
     await h.press(BOBUR, "tl:dept:0")
     dept = edits(h)[-1]
     assert "Просрочено</b> (1)" in dept and "MKT-002" in dept and "Ждут приёмки</b> (1)" in dept
