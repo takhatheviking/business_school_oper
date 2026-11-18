@@ -15,6 +15,8 @@ Telegram-бот для клиентов и команды школы:
 
 ## Запуск на сервере (Docker)
 
+Боевой бот работает на сервере Hostmaster: как он там устроен и как его обновлять — [deploy/README.md](deploy/README.md). Ниже — общий порядок для любого VPS.
+
 Нужен любой VPS с Linux и Docker. Хватит 1 ГБ памяти.
 
 1. Создайте бота у [@BotFather](https://t.me/BotFather) и скопируйте токен. Для разработки заведите отдельного тестового бота — боевой продолжит работать как раньше.
@@ -32,7 +34,7 @@ docker compose up -d --build
 Миграции применяются при старте контейнера. Логи смотрятся так:
 
 ```bash
-docker compose logs -f bot
+docker compose logs -f school-bot
 ```
 
 Обновление после `git pull` — та же команда `docker compose up -d --build`.
@@ -93,7 +95,7 @@ docker compose logs -f bot
 
 ## Локальная разработка
 
-Нужны Python 3.12+, [uv](https://docs.astral.sh/uv/) и PostgreSQL. Проще всего поднять базу из `docker compose up -d db`.
+Нужны Python 3.12+, [uv](https://docs.astral.sh/uv/) и PostgreSQL. Проще всего поднять базу из `docker compose up -d school-db` (порт 5432 открывает `docker-compose.override.yml`, только на своём компьютере).
 
 ```bash
 uv sync

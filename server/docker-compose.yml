@@ -1,5 +1,16 @@
+# The bot of Proactive business school. On the shared Hostmaster server it lives in
+# ~/proactive-school (deploy/README.md): the project name and the service names must not
+# clash with the neighbours, every container has memory and CPU limits and rotated logs.
+name: proactive-school
+
+x-logging: &logging  # the server has no log rotation of its own
+  driver: json-file
+  options:
+    max-size: 10m
+    max-file: "5"
+
 services:
-  db:
+  school-db:
     image: postgres:16-alpine
     restart: unless-stopped
     environment:
@@ -8,36 +19,48 @@ services:
       POSTGRES_DB: proactive_bot
     volumes:
       - pgdata:/var/lib/postgresql/data
-    ports:
-      - "127.0.0.1:5432:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U proactive -d proactive_bot"]
       interval: 5s
       timeout: 3s
       retries: 10
+    mem_limit: 256m
+    cpus: 0.5
+    logging: *logging
 
-  redis:
+  school-redis:
     image: redis:7-alpine
     restart: unless-stopped
-    command: ["redis-server", "--appendonly", "yes"]
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory", "48mb", "--maxmemory-policy", "noeviction"]
     volumes:
       - redisdata:/data
+    mem_limit: 64m
+    cpus: 0.25
+    logging: *logging
 
-  bot:
+  school-bot:
     build: .
     restart: unless-stopped
+    init: true
+    # The owner of the folder on the server (uid 1001): the key in ./secrets is chmod 600.
+    user: "${BOT_UID:-1001}:${BOT_GID:-1001}"
     env_file: .env
     environment:
-      DATABASE_URL: postgresql+asyncpg://proactive:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@db:5432/proactive_bot
-      REDIS_URL: redis://redis:6379/0
+      DATABASE_URL: postgresql+asyncpg://proactive:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@school-db:5432/proactive_bot
+      REDIS_URL: redis://school-redis:6379/0
     volumes:
       # Google service account key (docs/GOOGLE_SHEETS.md), read-only
       - ./secrets:/app/secrets:ro
     depends_on:
-      db:
+      school-db:
         condition: service_healthy
-      redis:
+      school-redis:
         condition: service_started
+    mem_limit: 512m
+    cpus: 1.0
+    pids_limit: 256
+    logging: *logging
+    # No ports: the bot gets updates by long polling.
 
 volumes:
   pgdata:

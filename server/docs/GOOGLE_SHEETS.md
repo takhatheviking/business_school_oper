@@ -20,7 +20,7 @@
 6. Перезапустите бота:
 
    ```bash
-   docker compose up -d bot
+   docker compose up -d school-bot
    ```
 
 > Если Google пишет, что создание ключей запрещено политикой организации (`iam.disableServiceAccountKeyCreation`), то это ограничение рабочего Google Workspace. Создайте проект в личном Google-аккаунте или попросите администратора Workspace разрешить ключ для этого проекта.

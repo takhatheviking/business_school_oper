@@ -1,0 +1,6 @@
+# Local development only: the database on localhost:5432 for `uv run` and the tests.
+# deploy/deploy.sh does not copy this file, so nothing is published on the server.
+services:
+  school-db:
+    ports:
+      - "127.0.0.1:5432:5432"

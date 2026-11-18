@@ -15,6 +15,7 @@ materials/
 *.env
 .clasp.json
 .clasprc.json
+server/deploy/.deploy.local
 
 # Служебное
 node_modules/
